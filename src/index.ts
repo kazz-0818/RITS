@@ -11,8 +11,9 @@ const env = loadEnv();
 const app = new Hono();
 
 app.route("/", healthApp);
-app.route("/", createAdminApp(env));
+// LINE は /admin の認証ミドルウェアの対象外。admin を先にマウントすると * が webhook を潰すため順序とスコープに注意。
 app.route("/", createLineWebhookApp(env));
+app.route("/", createAdminApp(env));
 
 app.onError((err, c) => {
   logger.error("Unhandled error", { err: err instanceof Error ? err.message : String(err) });

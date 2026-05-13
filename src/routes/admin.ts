@@ -13,7 +13,8 @@ export function createAdminApp(env: Env) {
   const app = new Hono();
   const openai = createOpenAIClient(env.OPENAI_API_KEY);
 
-  app.use("*", async (c, next) => {
+  // ワイルドカード "*" だと /webhook/line まで巻き込むため /admin 配下のみ認証する
+  app.use("/admin/*", async (c, next) => {
     const key = c.req.header("x-admin-api-key");
     if (!key || key !== env.ADMIN_API_KEY) {
       return c.json({ ok: false, error: "unauthorized" }, 401);
