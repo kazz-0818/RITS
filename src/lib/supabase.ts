@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "../config/env.js";
 import { logger } from "./logger.js";
 import { stripEnvValue } from "./envString.js";
+import { peekSupabaseJwtRole } from "./supabaseJwt.js";
 
 function isLikelyValidHttpUrl(value: string): boolean {
   const v = value.trim();
@@ -27,7 +28,26 @@ export function getSupabaseEnvBlockReason(env: Env): string | null {
   }
   if (!isLikelyValidHttpUrl(url)) return "SUPABASE_URL が https:// で始まる有効なURLではありません";
   if (key.length < 30) return "SUPABASE_SERVICE_ROLE_KEY が短すぎます（anon key や誤コピーでないか確認）";
+  const jwtRole = peekSupabaseJwtRole(key);
+  if (jwtRole === "anon") {
+    return "SUPABASE_SERVICE_ROLE_KEY に anon key（公開用）が入っています。Dashboard → Settings → API の service_role シークレットを設定してください";
+  }
+  if (jwtRole === "authenticated") {
+    return "SUPABASE_SERVICE_ROLE_KEY の JWT role が authenticated です。service_role キーを貼り付けてください";
+  }
   return null;
+}
+
+/** /health 用: 接続先がどの Supabase プロジェクトか（秘密は出さない） */
+export function describeSupabaseHttpUrl(url: string): { host: string; projectRef: string | null } {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const m = /^([a-z0-9-]+)\.supabase\.co$/.exec(host);
+    return { host, projectRef: m?.[1] ?? null };
+  } catch {
+    return { host: "", projectRef: null };
+  }
 }
 
 /**
@@ -42,6 +62,9 @@ export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
   if (key.includes("ここに")) return null;
   if (!isLikelyValidHttpUrl(url)) return null;
   if (!key || key.length < 30) return null;
+
+  const jwtRole = peekSupabaseJwtRole(key);
+  if (jwtRole === "anon" || jwtRole === "authenticated") return null;
 
   try {
     return createClient(url, key, {

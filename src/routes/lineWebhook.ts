@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../config/env.js";
 import { createOpenAIClient } from "../lib/openai.js";
-import { tryCreateSupabaseAdmin } from "../lib/supabase.js";
+import { getSupabaseEnvBlockReason, tryCreateSupabaseAdmin } from "../lib/supabase.js";
 import { parseLineEvents, replyMessage, verifyLineSignature } from "../lib/line.js";
 import { handleRitsLineText } from "../services/ritsService.js";
 import { logger } from "../lib/logger.js";
@@ -44,11 +44,13 @@ export function createLineWebhookApp(env: Env) {
       return c.text("Forbidden", 403);
     }
 
-    const supabase = tryCreateSupabaseAdmin(env);
+    const supabaseBlock = getSupabaseEnvBlockReason(env);
+    const supabase = supabaseBlock ? null : tryCreateSupabaseAdmin(env);
     if (!supabase) {
-      logger.warn(
-        "LINE webhook: Supabase未設定のためイベントを処理しません。Renderの SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY を実値にしてください。",
-      );
+      logger.warn("LINE webhook: Supabase を利用できません", {
+        reason: supabaseBlock ?? "createClient_returned_null",
+        hint: "GET /health で supabase_hint・supabase_jwt_role を確認してください",
+      });
       return c.text("OK", 200);
     }
 

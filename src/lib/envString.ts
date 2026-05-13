@@ -12,12 +12,21 @@ export function stripEnvValue(v: unknown): string {
   return s;
 }
 
-/** Supabase の「Project URL」コピペで https:// が抜けている場合に補完する */
+/** Supabase の「Project URL」コピペで https が抜けたり、/rest/v1 が付いたりするのを直す */
 export function normalizeSupabaseProjectUrl(raw: unknown): string {
   let s = stripEnvValue(raw);
   s = s.replace(/\/+$/, "");
+  // Dashboard の一部 UI や誤コピーで末尾に REST パスが付く
+  s = s.replace(/\/rest\/v1\/?$/i, "");
+  s = s.replace(/\/storage\/v1\/?$/i, "");
+  s = s.replace(/\/auth\/v1\/?$/i, "");
+  s = s.replace(/\/v1\/?$/i, "");
   if (!/^https?:\/\//i.test(s) && /^[a-z0-9-]+\.supabase\.co$/i.test(s)) {
-    return `https://${s}`;
+    s = `https://${s}`;
+  }
+  // supabase.co は https 前提
+  if (/^http:\/\/[^/]+\.supabase\.co/i.test(s)) {
+    s = `https://${s.slice("http://".length)}`;
   }
   return s;
 }

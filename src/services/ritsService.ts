@@ -58,7 +58,7 @@ function redactForUserMessage(s: string): string {
 /**
  * 例外をユーザー向け短文に変換（原因切り分け用。秘密は出さない）
  */
-function userFacingRitsErrorLines(e: unknown): string[] {
+function userFacingRitsErrorLines(e: unknown, appBaseUrl: string): string[] {
   const raw = e instanceof Error ? e.message : String(e);
   const m = raw.toLowerCase();
 
@@ -96,8 +96,10 @@ function userFacingRitsErrorLines(e: unknown): string[] {
     (m.includes("does not exist") &&
       (m.includes("relation") || m.includes("agent_") || m.includes("public.") || m.includes("table")))
   ) {
+    const base = appBaseUrl.replace(/\/+$/, "");
     return [
-      "RITS: Supabase にテーブルが無いか、Render の SUPABASE_URL が SQL を流したプロジェクトと違います。同一プロジェクトの Project URL と schema.sql の適用を確認してください。",
+      "RITS: Supabase の必須テーブルにアクセスできていません（別プロジェクトの URL / 未実行の schema.sql / キー誤りが多いです）。",
+      `ブラウザで ${base}/health を開き、supabase_project_ref・supabase_jwt_role（service_role であること）・supabase_missing_tables を確認してください。`,
     ];
   }
 
@@ -293,7 +295,7 @@ export async function handleRitsLineText(params: {
       });
     }
 
-    const lines = userFacingRitsErrorLines(e);
+    const lines = userFacingRitsErrorLines(e, params.deps.env.APP_BASE_URL);
     try {
       await sendLineReply(params.deps, params.replyToken, lines, "ERROR_FALLBACK");
     } catch (replyErr) {

@@ -3,6 +3,8 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { loadEnv } from "./config/env.js";
 import { logger } from "./lib/logger.js";
+import { tryCreateSupabaseAdmin } from "./lib/supabase.js";
+import { listMissingOrBrokenTables, probeRitsPublicTables } from "./lib/supabaseSchemaCheck.js";
 import { healthApp } from "./routes/health.js";
 import { createAdminApp } from "./routes/admin.js";
 import { createLineWebhookApp } from "./routes/lineWebhook.js";
@@ -28,5 +30,20 @@ serve(
   },
   (info) => {
     logger.info("RITS server listening", { port: info.port, nodeEnv: env.NODE_ENV });
+    void (async () => {
+      const s = tryCreateSupabaseAdmin(env);
+      if (!s) {
+        logger.warn("起動時診断: Supabase クライアントを作成できません（環境変数を確認）");
+        return;
+      }
+      const { allOk, probes } = await probeRitsPublicTables(s);
+      if (!allOk) {
+        logger.error("起動時診断: Supabase 必須テーブルに問題があります", {
+          missing: listMissingOrBrokenTables(probes),
+        });
+      } else {
+        logger.info("起動時診断: Supabase 必須テーブル OK");
+      }
+    })();
   },
 );
