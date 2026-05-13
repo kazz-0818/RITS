@@ -47,6 +47,70 @@ async function sendLineReply(
   }
 }
 
+/** LINE に載せる前に、よくある秘密・長い JWT をマスクする */
+function redactForUserMessage(s: string): string {
+  return s
+    .replace(/\bsk-[a-zA-Z0-9]{10,}\b/g, "sk-***")
+    .replace(/\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g, "eyJ***")
+    .replace(/service_role["\s:]+[a-zA-Z0-9._-]{20,}/gi, "service_role ***");
+}
+
+/**
+ * 例外をユーザー向け短文に変換（原因切り分け用。秘密は出さない）
+ */
+function userFacingRitsErrorLines(e: unknown): string[] {
+  const raw = e instanceof Error ? e.message : String(e);
+  const m = raw.toLowerCase();
+
+  if (
+    m.includes("incorrect api key") ||
+    m.includes("invalid_api_key") ||
+    m.includes("invalid api key") ||
+    (m.includes("401") && (m.includes("openai") || m.includes("authentication")))
+  ) {
+    return ["RITS: OpenAI の API キーが無効です。Render の OPENAI_API_KEY を https://platform.openai.com で発行した値に差し替えてください。"];
+  }
+
+  if (
+    m.includes("model_not_found") ||
+    (m.includes("model") && m.includes("does not exist")) ||
+    (m.includes("model") && (m.includes("not found") || m.includes("invalid") || m.includes("unknown")))
+  ) {
+    return [
+      "RITS: OPENAI_MODEL が使えません。Render で `gpt-4o-mini` など実在するモデルに変更してください（現在の値はログに残っています）。",
+    ];
+  }
+
+  if (m.includes("429") || m.includes("rate limit") || m.includes("too many requests")) {
+    return ["RITS: OpenAI のレート制限です。少し待ってから再送してください。"];
+  }
+
+  if (m.includes("quota") || m.includes("billing") || m.includes("exceeded your current quota")) {
+    return ["RITS: OpenAI の利用枠・請求（クレジット）を確認してください。"];
+  }
+
+  if (
+    m.includes("pgrst205") ||
+    m.includes("schema cache") ||
+    m.includes("could not find the table") ||
+    (m.includes("does not exist") &&
+      (m.includes("relation") || m.includes("agent_") || m.includes("public.") || m.includes("table")))
+  ) {
+    return [
+      "RITS: Supabase にテーブルが無いか、Render の SUPABASE_URL が SQL を流したプロジェクトと違います。同一プロジェクトの Project URL と schema.sql の適用を確認してください。",
+    ];
+  }
+
+  if (m.includes("createSystemError failed")) {
+    return [
+      "RITS: エラー記録用テーブル（system_errors）への書き込みに失敗しました。Supabase のプロジェクトが Render と一致しているか、RLS を service_role で通る状態か確認してください。",
+    ];
+  }
+
+  const tail = redactForUserMessage(raw).slice(0, 380);
+  return [`RITS: 処理に失敗しました。`, `（サーバー: ${tail}${raw.length > 380 ? "…" : ""}）`];
+}
+
 function isHighRisk(audit: { risk_level: string | null }): boolean {
   const r = (audit.risk_level ?? "").toLowerCase();
   return r === "high" || r === "critical";
@@ -209,22 +273,32 @@ export async function handleRitsLineText(params: {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    logger.error("handleRitsLineText failed", { err: msg });
-    await logService.createSystemError(params.deps.supabase, {
-      source: "ritsService.handleRitsLineText",
-      error_message: msg,
-      stack_trace: e instanceof Error ? e.stack : undefined,
-      severity: "high",
-      metadata: { cmd },
+    logger.error("handleRitsLineText failed", {
+      err: msg,
+      stack: e instanceof Error ? e.stack : undefined,
+      cmd,
     });
 
-    await sendLineReply(
-      params.deps,
-      params.replyToken,
-      [
-        "RITS: 処理中にエラーが発生しました。system_errorsを確認し、Supabase接続と環境変数を検証してください。",
-      ],
-      "ERROR_FALLBACK",
-    );
+    try {
+      await logService.createSystemError(params.deps.supabase, {
+        source: "ritsService.handleRitsLineText",
+        error_message: msg,
+        stack_trace: e instanceof Error ? e.stack : undefined,
+        severity: "high",
+        metadata: { cmd },
+      });
+    } catch (logErr) {
+      logger.error("createSystemError に失敗（ユーザー向け返信は続行）", {
+        err: logErr instanceof Error ? logErr.message : String(logErr),
+      });
+    }
+
+    const lines = userFacingRitsErrorLines(e);
+    try {
+      await sendLineReply(params.deps, params.replyToken, lines, "ERROR_FALLBACK");
+    } catch (replyErr) {
+      logger.error("ERROR_FALLBACK の sendLineReply が例外", { err: String(replyErr) });
+      throw e;
+    }
   }
 }
