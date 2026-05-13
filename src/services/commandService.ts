@@ -53,10 +53,10 @@ export function classifyLineCommand(rawText: string): LineCommand {
     return { type: "CURSOR_INSTRUCTION", agent: detectAgent(text) };
   }
 
-  // 未対応一覧
+  // 未対応一覧（「未対応」単体は誤爆しやすいので長めのフレーズに限定）
   if (
     /未対応リクエスト/.test(text) ||
-    /未対応/.test(text) ||
+    /未対応(の)?(一覧|リスト)/.test(text) ||
     /できてないこと一覧/.test(text) ||
     /できていないこと一覧/.test(text) ||
     /改善候補/.test(text)

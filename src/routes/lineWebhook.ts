@@ -6,6 +6,13 @@ import { parseLineEvents, replyMessage, verifyLineSignature } from "../lib/line.
 import { handleRitsLineText } from "../services/ritsService.js";
 import { logger } from "../lib/logger.js";
 
+/** Webhook JSON の events を配列として取り出す（parseLineEvents と同様の扱い） */
+function coerceWebhookEvents(json: unknown): unknown[] {
+  if (!json || typeof json !== "object") return [];
+  const ev = (json as { events?: unknown }).events;
+  return Array.isArray(ev) ? ev : [];
+}
+
 /** テキスト以外の message イベントから replyToken を1つ取る（無言回避用） */
 function firstNonTextMessageReplyToken(events: unknown[]): string | null {
   for (const ev of events) {
@@ -54,21 +61,47 @@ export function createLineWebhookApp(env: Env) {
     }
 
     const events = parseLineEvents(json);
-    const rawList = (json as { events?: unknown[] }).events ?? [];
+    const rawList = coerceWebhookEvents(json);
 
-    let handledTexts = 0;
+    logger.info("LINE webhook", {
+      raw_event_count: rawList.length,
+      parsed_text_message_count: events.length,
+    });
+
+    let anyTextInteraction = false;
     for (const ev of events) {
       const text = ev.message.text?.trim();
       if (!text) continue;
-      handledTexts += 1;
-      await handleRitsLineText({
-        deps: { env, supabase, openai },
-        replyToken: ev.replyToken,
-        text,
-      });
+
+      try {
+        await handleRitsLineText({
+          deps: { env, supabase, openai },
+          replyToken: ev.replyToken,
+          text,
+        });
+        anyTextInteraction = true;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        logger.error("handleRitsLineText threw", { err: msg });
+        try {
+          const res = await replyMessage({
+            channelAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN,
+            replyToken: ev.replyToken,
+            texts: [
+              "RITS: 処理中にエラーが発生しました。OpenAIのキーやモデル名、Supabaseのテーブル作成を確認してください。",
+            ],
+          });
+          if (!res.ok) {
+            logger.warn("LINE error reply failed", { status: res.status, body: res.body.slice(0, 500) });
+          }
+        } catch (e2) {
+          logger.error("LINE error reply threw", { err: String(e2) });
+        }
+        anyTextInteraction = true;
+      }
     }
 
-    if (handledTexts === 0 && rawList.length > 0) {
+    if (!anyTextInteraction && rawList.length > 0) {
       const token = firstNonTextMessageReplyToken(rawList);
       if (token) {
         const res = await replyMessage({

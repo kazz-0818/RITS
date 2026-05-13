@@ -23,7 +23,8 @@ export const LineMessageEventSchema = z.object({
 
 export const LineWebhookBodySchema = z.object({
   destination: z.string().optional(),
-  events: z.array(z.unknown()),
+  /** 欠落・null・非配列は空配列として扱う（LINE の揺れでイベントが全落ちしないように） */
+  events: z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(z.unknown())),
 });
 
 export type LineTextMessage = z.infer<typeof LineTextMessageSchema>;
