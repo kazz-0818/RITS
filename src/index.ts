@@ -36,7 +36,20 @@ serve(
         logger.warn("起動時診断: Supabase クライアントを作成できません（環境変数を確認）");
         return;
       }
-      const { allOk, probes } = await probeRitsPublicTables(s);
+      const probeMs = 8000;
+      const raced = await Promise.race([
+        probeRitsPublicTables(s).then((r) => ({ kind: "ok" as const, r })),
+        new Promise<{ kind: "timeout" }>((resolve) => {
+          setTimeout(() => resolve({ kind: "timeout" }), probeMs);
+        }),
+      ]);
+      if (raced.kind === "timeout") {
+        logger.warn("起動時診断: テーブルプローブがタイムアウト（手動で GET /health/supabase-tables）", {
+          probeMs,
+        });
+        return;
+      }
+      const { allOk, probes } = raced.r;
       if (!allOk) {
         logger.error("起動時診断: Supabase 必須テーブルに問題があります", {
           missing: listMissingOrBrokenTables(probes),

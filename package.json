@@ -5,7 +5,7 @@
   "description": "RITS — AI人事（AIエージェント監査・評価・改善）",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0 <25"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
