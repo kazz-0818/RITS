@@ -22,6 +22,9 @@ export function getSupabaseEnvBlockReason(env: Env): string | null {
   if (key.includes("ここに")) return "SUPABASE_SERVICE_ROLE_KEY に「ここに」が含まれています（プレースホルダーのままです）";
   if (!url) return "SUPABASE_URL が空です";
   if (!key) return "SUPABASE_SERVICE_ROLE_KEY が空です";
+  if (/^postgres(ql)?:\/\//i.test(url)) {
+    return "SUPABASE_URL に DB 接続文字列(postgresql://...)が入っています。Supabaseの Settings → API の「Project URL」(https://xxxx.supabase.co) を設定してください";
+  }
   if (!isLikelyValidHttpUrl(url)) return "SUPABASE_URL が https:// で始まる有効なURLではありません";
   if (key.length < 30) return "SUPABASE_SERVICE_ROLE_KEY が短すぎます（anon key や誤コピーでないか確認）";
   return null;

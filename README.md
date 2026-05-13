@@ -47,7 +47,7 @@ npm run dev
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINEチャネルアクセストークン |
 | `LINE_CHANNEL_SECRET` | LINEチャネルシークレット |
 | `LINE_OWNER_USER_ID` | オーナーのLINEユーザーID（任意運用） |
-| `SUPABASE_URL` | `https://` で始まる Supabase Project URL（**`xxxxx.supabase.co` のみ**でも可。起動時に `https://` を補完します） |
+| `SUPABASE_URL` | **API の Project URL**（`https://xxxx.supabase.co`）。**`postgresql://postgres...` の DB 接続文字列は不可**（`@supabase/supabase-js` 用） |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 | `ADMIN_API_KEY` | `/admin` 系API保護用の共有鍵 |
 | `APP_BASE_URL` | 例: `https://<your-service>.onrender.com` |
