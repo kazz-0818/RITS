@@ -25,7 +25,11 @@ export function createLineWebhookApp(env: Env) {
 
     const supabase = tryCreateSupabaseAdmin(env);
     if (!supabase) {
-      return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+      // LINE は Webhook に 200 を期待する。Supabase 未設定でも受信は成功として返す（再送ループを避ける）。
+      logger.warn(
+        "LINE webhook: Supabase未設定のためイベントを処理しません。Renderの SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY を実値にしてください。",
+      );
+      return c.text("OK", 200);
     }
 
     let json: unknown;
