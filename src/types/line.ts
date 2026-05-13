@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 /** LINE Messaging API: webhook の最小構造（必要部分のみ） */
-export const LineTextMessageSchema = z.object({
-  type: z.literal("text"),
-  id: z.string(),
-  text: z.string(),
-});
+export const LineTextMessageSchema = z
+  .object({
+    type: z.literal("text"),
+    id: z.string().optional(),
+    text: z.string(),
+  })
+  .passthrough();
 
 export const LineMessageEventSchema = z.object({
   type: z.literal("message"),

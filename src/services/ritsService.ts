@@ -17,6 +17,36 @@ export type RitsDeps = {
   openai: OpenAI;
 };
 
+/** LINE reply の結果を検査し、失敗時は system_errors に残す（Render ログだけでは気づきにくいため） */
+async function sendLineReply(
+  deps: RitsDeps,
+  replyToken: string,
+  texts: string[],
+  context: string,
+): Promise<void> {
+  const normalized = texts.filter((t) => t.trim().length > 0);
+  const toSend = (normalized.length > 0 ? normalized : ["（応答が空でした）"]).slice(0, 5);
+  const res = await replyMessage({
+    channelAccessToken: deps.env.LINE_CHANNEL_ACCESS_TOKEN,
+    replyToken,
+    texts: toSend,
+  });
+  if (!res.ok) {
+    logger.warn("LINE reply API が失敗しました", { context, status: res.status });
+    try {
+      await logService.createSystemError(deps.supabase, {
+        source: `ritsService.${context}`,
+        error_message: `LINE reply HTTP ${res.status}`,
+        stack_trace: undefined,
+        severity: "high",
+        metadata: { line_body: res.body.slice(0, 2500) },
+      });
+    } catch (e) {
+      logger.error("system_errors への記録に失敗", { err: String(e) });
+    }
+  }
+}
+
 function isHighRisk(audit: { risk_level: string | null }): boolean {
   const r = (audit.risk_level ?? "").toLowerCase();
   return r === "high" || r === "critical";
@@ -78,11 +108,7 @@ export async function handleRitsLineText(params: {
       }
       const body = row ? reportService.formatDailyReportForLine(row) : "日次レポートの生成に失敗しました。";
       const chunks = chunkLineText(body, 4500).slice(0, 5);
-      await replyMessage({
-        channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-        replyToken: params.replyToken,
-        texts: chunks,
-      });
+      await sendLineReply(params.deps, params.replyToken, chunks, "DAILY_REPORT");
       return;
     }
 
@@ -91,22 +117,14 @@ export async function handleRitsLineText(params: {
       const audits = await logService.getAuditsByAgent(params.deps.supabase, { agent_name: agent, limit: 12 });
       const msg = formatAuditsForLine(agent, audits);
       const chunks = chunkLineText(msg, 4500).slice(0, 5);
-      await replyMessage({
-        channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-        replyToken: params.replyToken,
-        texts: chunks,
-      });
+      await sendLineReply(params.deps, params.replyToken, chunks, "AGENT_ISSUES");
       return;
     }
 
     if (cmd.type === "UNSUPPORTED_REQUESTS") {
       const rows = await logService.getOpenUnsupportedRequests(params.deps.supabase, { limit: 30 });
       if (rows.length === 0) {
-        await replyMessage({
-          channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-          replyToken: params.replyToken,
-          texts: ["未対応リクエスト（open）はありません。"],
-        });
+        await sendLineReply(params.deps, params.replyToken, ["未対応リクエスト（open）はありません。"], "UNSUPPORTED_EMPTY");
         return;
       }
 
@@ -118,11 +136,7 @@ export async function handleRitsLineText(params: {
         lines.push("");
       }
       const chunks = chunkLineText(lines.join("\n"), 4500).slice(0, 5);
-      await replyMessage({
-        channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-        replyToken: params.replyToken,
-        texts: chunks,
-      });
+      await sendLineReply(params.deps, params.replyToken, chunks, "UNSUPPORTED_LIST");
       return;
     }
 
@@ -175,11 +189,7 @@ export async function handleRitsLineText(params: {
         user,
       });
       const chunks = chunkLineText(text, 4500).slice(0, 5);
-      await replyMessage({
-        channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-        replyToken: params.replyToken,
-        texts: chunks,
-      });
+      await sendLineReply(params.deps, params.replyToken, chunks, "CURSOR_INSTRUCTION");
       return;
     }
 
@@ -194,11 +204,7 @@ export async function handleRitsLineText(params: {
         user,
       });
       const chunks = chunkLineText(text, 4500).slice(0, 5);
-      await replyMessage({
-        channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-        replyToken: params.replyToken,
-        texts: chunks,
-      });
+      await sendLineReply(params.deps, params.replyToken, chunks, "GENERAL_OR_UNKNOWN");
       return;
     }
   } catch (e) {
@@ -212,12 +218,13 @@ export async function handleRitsLineText(params: {
       metadata: { cmd },
     });
 
-    await replyMessage({
-      channelAccessToken: params.deps.env.LINE_CHANNEL_ACCESS_TOKEN,
-      replyToken: params.replyToken,
-      texts: [
+    await sendLineReply(
+      params.deps,
+      params.replyToken,
+      [
         "RITS: 処理中にエラーが発生しました。system_errorsを確認し、Supabase接続と環境変数を検証してください。",
       ],
-    });
+      "ERROR_FALLBACK",
+    );
   }
 }
