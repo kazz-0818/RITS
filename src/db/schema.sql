@@ -1,5 +1,8 @@
 -- RITS — Supabase (Postgres) schema
 -- Apply in Supabase SQL Editor or via migration tooling.
+--
+-- 貼り付け方: このファイルの「先頭から最終行まで」をそのまま1本のクエリとして実行してください。
+-- チャットや説明文に混ざった「// ...」行は SQL ではないためエラーになります（貼り付けないでください）。
 
 create extension if not exists "pgcrypto";
 
