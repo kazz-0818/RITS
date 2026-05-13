@@ -56,7 +56,7 @@ npm run dev
 
 補足:
 
-- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` に **「ここに…」の日本語プレースホルダーが残っている間**は、Supabase接続を作れません。**`/admin/*` は 503**、**`/webhook/line` は LINE 仕様のため 200 を返しますが、イベントは処理されません**（会話ログの保存・返信には実値が必要です）。`/health` は起動確認用に通ります。
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` に **「ここに…」の日本語プレースホルダーが残っている間**は、Supabase接続を作れません。**`/admin/*` は 503**、**`/webhook/line` は LINE 仕様のため 200 を返しますが、イベントは処理されません**（会話ログの保存・返信には実値が必要です）。**`GET /health`** では `supabase_ok` と失敗時のみ `supabase_hint`（秘密は出しません）を返すので、Render の変数名・**前後の引用符**・コピペ混入を切り分けできます。
 
 ## Supabase: `schema.sql` の適用
 

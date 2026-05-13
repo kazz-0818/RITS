@@ -1,17 +1,18 @@
 import { z } from "zod";
+import { stripEnvValue } from "../lib/envString.js";
 
-const PlaceholderString = z.string().min(1);
+const EnvString = z.preprocess((v) => stripEnvValue(v), z.string().min(1));
 
 export const EnvSchema = z.object({
-  OPENAI_API_KEY: PlaceholderString,
-  OPENAI_MODEL: PlaceholderString,
-  LINE_CHANNEL_ACCESS_TOKEN: PlaceholderString,
-  LINE_CHANNEL_SECRET: PlaceholderString,
-  LINE_OWNER_USER_ID: PlaceholderString,
-  SUPABASE_URL: PlaceholderString,
-  SUPABASE_SERVICE_ROLE_KEY: PlaceholderString,
-  ADMIN_API_KEY: PlaceholderString,
-  APP_BASE_URL: PlaceholderString,
+  OPENAI_API_KEY: EnvString,
+  OPENAI_MODEL: EnvString,
+  LINE_CHANNEL_ACCESS_TOKEN: EnvString,
+  LINE_CHANNEL_SECRET: EnvString,
+  LINE_OWNER_USER_ID: EnvString,
+  SUPABASE_URL: EnvString,
+  SUPABASE_SERVICE_ROLE_KEY: EnvString,
+  ADMIN_API_KEY: EnvString,
+  APP_BASE_URL: EnvString,
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
 });
