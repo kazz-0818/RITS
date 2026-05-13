@@ -11,3 +11,13 @@ export function stripEnvValue(v: unknown): string {
   }
   return s;
 }
+
+/** Supabase の「Project URL」コピペで https:// が抜けている場合に補完する */
+export function normalizeSupabaseProjectUrl(raw: unknown): string {
+  let s = stripEnvValue(raw);
+  s = s.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(s) && /^[a-z0-9-]+\.supabase\.co$/i.test(s)) {
+    return `https://${s}`;
+  }
+  return s;
+}

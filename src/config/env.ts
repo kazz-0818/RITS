@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { stripEnvValue } from "../lib/envString.js";
+import { normalizeSupabaseProjectUrl, stripEnvValue } from "../lib/envString.js";
 
 const EnvString = z.preprocess((v) => stripEnvValue(v), z.string().min(1));
+
+const SupabaseUrl = z.preprocess((v) => normalizeSupabaseProjectUrl(v), z.string().min(1));
 
 export const EnvSchema = z.object({
   OPENAI_API_KEY: EnvString,
@@ -9,7 +11,7 @@ export const EnvSchema = z.object({
   LINE_CHANNEL_ACCESS_TOKEN: EnvString,
   LINE_CHANNEL_SECRET: EnvString,
   LINE_OWNER_USER_ID: EnvString,
-  SUPABASE_URL: EnvString,
+  SUPABASE_URL: SupabaseUrl,
   SUPABASE_SERVICE_ROLE_KEY: EnvString,
   ADMIN_API_KEY: EnvString,
   APP_BASE_URL: EnvString,
