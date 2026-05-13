@@ -1,0 +1,35 @@
+{
+  "name": "rits",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RITS — AI人事（AIエージェント監査・評価・改善）",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "seed:test-logs": "tsx src/scripts/seedTestLogs.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.1",
+    "@supabase/supabase-js": "^2.49.1",
+    "dotenv": "^16.4.7",
+    "hono": "^4.7.4",
+    "openai": "^4.86.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.10",
+    "eslint": "^9.21.0",
+    "globals": "^16.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0"
+  }
+}
