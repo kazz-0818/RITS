@@ -20,10 +20,10 @@ RITSは「人間の人事」ではなく、稼働中のAIエージェント（NE
 
 ## Render へデプロイ（このリポジトリ）
 
-リポジトリ: `https://github.com/kazz-0818/veliora-rits`
+リポジトリ: `https://github.com/kazz-0818/RITS`
 
 1. 次のいずれかで Blueprint 作成フローを開きます（**repo を明示**）。  
-   - [Deploy to Render（このリポジトリを指定）](https://render.com/deploy?repo=https://github.com/kazz-0818/veliora-rits)
+   - [Deploy to Render（このリポジトリを指定）](https://render.com/deploy?repo=https://github.com/kazz-0818/RITS)
 2. GitHub 連携を承認し、ルートの [`render.yaml`](render.yaml) を読み込ませます。
 3. **プライベートリポジトリ**の場合は [Render GitHub App](https://github.com/apps/render) を当該リポジトリにインストールしてください。
 4. ダッシュボードで `sync: false` のシークレット系環境変数（`OPENAI_API_KEY` 等）を設定し、デプロイ完了後に `APP_BASE_URL` を実サービスURLに更新してください。
