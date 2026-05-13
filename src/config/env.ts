@@ -3,14 +3,21 @@ import { normalizeSupabaseProjectUrl, stripEnvValue } from "../lib/envString.js"
 
 const EnvString = z.preprocess((v) => stripEnvValue(v), z.string().min(1));
 
+/** 未設定可（Render で空のシークレットを作れない・任意運用向け） */
+const EnvStringOptional = z.preprocess((v) => stripEnvValue(v), z.string());
+
 const SupabaseUrl = z.preprocess((v) => normalizeSupabaseProjectUrl(v), z.string().min(1));
 
 export const EnvSchema = z.object({
   OPENAI_API_KEY: EnvString,
-  OPENAI_MODEL: EnvString,
+  /** 未設定時はビルド/デプロイを落とさないよう既定モデル */
+  OPENAI_MODEL: z.preprocess((v) => {
+    const s = stripEnvValue(v);
+    return s.length === 0 ? "gpt-4o-mini" : s;
+  }, z.string().min(1)),
   LINE_CHANNEL_ACCESS_TOKEN: EnvString,
   LINE_CHANNEL_SECRET: EnvString,
-  LINE_OWNER_USER_ID: EnvString,
+  LINE_OWNER_USER_ID: EnvStringOptional,
   SUPABASE_URL: SupabaseUrl,
   SUPABASE_SERVICE_ROLE_KEY: EnvString,
   ADMIN_API_KEY: EnvString,

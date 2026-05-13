@@ -9,7 +9,16 @@ import { healthApp } from "./routes/health.js";
 import { createAdminApp } from "./routes/admin.js";
 import { createLineWebhookApp } from "./routes/lineWebhook.js";
 
-const env = loadEnv();
+let env: ReturnType<typeof loadEnv>;
+try {
+  env = loadEnv();
+} catch (e) {
+  const msg = e instanceof Error ? e.message : String(e);
+  // Render のログに必ず出す（起動前に落ちると「Deploy failed」だけになりがち）
+  console.error("[RITS] FATAL: 環境変数が不正です。Render Dashboard の Environment で必須シークレットを確認してください。");
+  console.error(msg);
+  process.exit(1);
+}
 const app = new Hono();
 
 app.route("/", healthApp);
