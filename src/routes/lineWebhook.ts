@@ -88,7 +88,7 @@ export function createLineWebhookApp(env: Env) {
             channelAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN,
             replyToken: ev.replyToken,
             texts: [
-              "RITS: 処理中にエラーが発生しました。OpenAIのキーやモデル名、Supabaseのテーブル作成を確認してください。",
+              "RITS: 処理中にエラーが発生しました。Supabaseなら Dashboard → SQL Editor で src/db/schema.sql を実行しテーブルを作成。OpenAIはキーと OPENAI_MODEL を確認してください。",
             ],
           });
           if (!res.ok) {
