@@ -1,8 +1,28 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { WebSocketLikeConstructor } from "@supabase/realtime-js";
+import WebSocket from "ws";
 import type { Env } from "../config/env.js";
 import { logger } from "./logger.js";
 import { stripEnvValue } from "./envString.js";
 import { peekSupabaseJwtRole } from "./supabaseJwt.js";
+
+/** Node 22 未満はグローバル WebSocket が無く、Realtime 初期化で createClient が落ちるため `ws` を渡す */
+function supabaseAdminClientOptions(): {
+  auth: { persistSession: false; autoRefreshToken: false };
+  realtime?: { transport: WebSocketLikeConstructor };
+} {
+  const auth = { persistSession: false, autoRefreshToken: false } as const;
+  const major = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
+  if (Number.isFinite(major) && major >= 22) {
+    return { auth };
+  }
+  return {
+    auth,
+    realtime: {
+      transport: WebSocket as unknown as WebSocketLikeConstructor,
+    },
+  };
+}
 
 function isLikelyValidHttpUrl(value: string): boolean {
   const v = value.trim();
@@ -83,9 +103,7 @@ export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
   if (jwtRole === "invalid") return null;
 
   try {
-    return createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    return createClient(url, key, supabaseAdminClientOptions());
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     lastSupabaseCreateClientError = msg;
