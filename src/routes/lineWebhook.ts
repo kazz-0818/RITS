@@ -101,9 +101,24 @@ export function createLineWebhookApp(env: Env) {
   const app = new Hono();
   const openai = createOpenAIClient(env.OPENAI_API_KEY);
 
+  /** ブラウザや監視ツールの GET/HEAD。LINE の検証は POST + X-Line-Signature */
+  app.get("/webhook/line", (c) =>
+    c.text(
+      "RITS LINE Webhook: POST only. Set Messaging API channel secret to Render LINE_CHANNEL_SECRET (same channel as this Webhook URL).",
+      200,
+    ),
+  );
+
   app.post("/webhook/line", async (c) => {
     const rawBody = await c.req.text();
     const signature = c.req.header("x-line-signature");
+
+    if (!signature?.trim()) {
+      logger.warn(
+        "LINE webhook: X-Line-Signature がありません（LINE 以外からの POST の可能性）。コンソールの「許可されていないリクエスト」は多くの場合、別タブ・セッション切れ、または署名不一致です。",
+      );
+      return c.text("Forbidden", 403);
+    }
 
     const ok = verifyLineSignature({
       channelSecret: env.LINE_CHANNEL_SECRET,
@@ -111,6 +126,9 @@ export function createLineWebhookApp(env: Env) {
       signatureHeader: signature,
     });
     if (!ok) {
+      logger.warn(
+        "LINE webhook: 署名検証に失敗しました。LINE Developers → 対象の Messaging API チャネル → Channel secret を再コピーし、Render の LINE_CHANNEL_SECRET と一致させてください（別チャネルの secret は不可）。",
+      );
       return c.text("Forbidden", 403);
     }
 
