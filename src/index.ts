@@ -16,6 +16,7 @@ try {
   const msg = e instanceof Error ? e.message : String(e);
   // Render のログに必ず出す（起動前に落ちると「Deploy failed」だけになりがち）
   console.error("[RITS] FATAL: 環境変数が不正です。Render Dashboard の Environment で必須シークレットを確認してください。");
+  console.error("ヒント: APP_BASE_URL が無い場合は Render が付与する RENDER_EXTERNAL_URL が使われます（Web Service 以外では APP_BASE_URL が必要です）。");
   console.error(msg);
   process.exit(1);
 }

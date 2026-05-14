@@ -8,6 +8,13 @@ const EnvStringOptional = z.preprocess((v) => stripEnvValue(v), z.string());
 
 const SupabaseUrl = z.preprocess((v) => normalizeSupabaseProjectUrl(v), z.string().min(1));
 
+/** Render Web Service が自動で付与する公開 URL（APP_BASE_URL 未設定時のフォールバック） */
+function resolveAppBaseUrl(raw: unknown): string {
+  const s = stripEnvValue(raw);
+  if (s.length > 0) return s;
+  return stripEnvValue(process.env.RENDER_EXTERNAL_URL);
+}
+
 export const EnvSchema = z.object({
   OPENAI_API_KEY: EnvString,
   /** 未設定時はビルド/デプロイを落とさないよう既定モデル */
@@ -21,7 +28,7 @@ export const EnvSchema = z.object({
   SUPABASE_URL: SupabaseUrl,
   SUPABASE_SERVICE_ROLE_KEY: EnvString,
   ADMIN_API_KEY: EnvString,
-  APP_BASE_URL: EnvString,
+  APP_BASE_URL: z.preprocess((v) => resolveAppBaseUrl(v), z.string().url({ message: "APP_BASE_URL または RENDER_EXTERNAL_URL が有効な https URL である必要があります" })),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
 });

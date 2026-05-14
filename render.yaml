@@ -26,5 +26,6 @@ services:
         sync: false
       - key: ADMIN_API_KEY
         sync: false
+      # 未設定なら実行時に RENDER_EXTERNAL_URL（Render が自動付与）を APP_BASE_URL として使います
       - key: APP_BASE_URL
         sync: false
