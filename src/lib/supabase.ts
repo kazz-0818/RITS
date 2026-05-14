@@ -35,6 +35,9 @@ export function getSupabaseEnvBlockReason(env: Env): string | null {
   if (jwtRole === "authenticated") {
     return "SUPABASE_SERVICE_ROLE_KEY の JWT role が authenticated です。service_role キーを貼り付けてください";
   }
+  if (jwtRole === "invalid") {
+    return "SUPABASE_SERVICE_ROLE_KEY が JWT として解釈できません（Settings → API の service_role の長いトークンをそのまま貼り付けてください）";
+  }
   return null;
 }
 
@@ -51,10 +54,22 @@ export function describeSupabaseHttpUrl(url: string): { host: string; projectRef
 }
 
 /**
+ * createClient が例外で失敗したときの直近メッセージ（LINE 診断用。秘密は含めない）
+ */
+let lastSupabaseCreateClientError: string | null = null;
+
+export function takeLastSupabaseCreateClientError(): string | null {
+  const m = lastSupabaseCreateClientError;
+  lastSupabaseCreateClientError = null;
+  return m;
+}
+
+/**
  * Supabase URL / service role が未設定のプレースホルダー状態では null を返す。
  * これにより Render/ローカルで `/health` だけ先に確認できる。
  */
 export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
+  lastSupabaseCreateClientError = null;
   const url = stripEnvValue(env.SUPABASE_URL);
   const key = stripEnvValue(env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -65,6 +80,7 @@ export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
 
   const jwtRole = peekSupabaseJwtRole(key);
   if (jwtRole === "anon" || jwtRole === "authenticated") return null;
+  if (jwtRole === "invalid") return null;
 
   try {
     return createClient(url, key, {
@@ -72,6 +88,7 @@ export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    lastSupabaseCreateClientError = msg;
     logger.error("Supabase createClient failed", { err: msg });
     return null;
   }
@@ -80,7 +97,8 @@ export function tryCreateSupabaseAdmin(env: Env): SupabaseClient | null {
 export function createSupabaseAdmin(env: Env): SupabaseClient {
   const c = tryCreateSupabaseAdmin(env);
   if (!c) {
-    const hint = getSupabaseEnvBlockReason(env) ?? "unknown";
+    const hint =
+      getSupabaseEnvBlockReason(env) ?? takeLastSupabaseCreateClientError() ?? "unknown";
     throw new Error(`Supabase is not configured: ${hint}`);
   }
   return c;

@@ -3,7 +3,7 @@ import type OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "../config/env.js";
 import { createOpenAIClient } from "../lib/openai.js";
-import { getSupabaseEnvBlockReason, tryCreateSupabaseAdmin } from "../lib/supabase.js";
+import { getSupabaseEnvBlockReason, takeLastSupabaseCreateClientError, tryCreateSupabaseAdmin } from "../lib/supabase.js";
 import { parseLineEvents, replyMessage, verifyLineSignature } from "../lib/line.js";
 import type { LineMessageEvent } from "../types/line.js";
 import { handleRitsLineText } from "../services/ritsService.js";
@@ -202,9 +202,13 @@ export function createLineWebhookApp(env: Env) {
 
     const supabaseBlock = getSupabaseEnvBlockReason(env);
     const supabase = supabaseBlock ? null : tryCreateSupabaseAdmin(env);
+    const createClientErr = !supabaseBlock && !supabase ? takeLastSupabaseCreateClientError() : null;
+    const reason =
+      supabaseBlock ??
+      createClientErr ??
+      "Supabase クライアントを作成できません（Render ログで「Supabase createClient failed」を検索）";
 
     if (!supabase) {
-      const reason = supabaseBlock ?? "createClient_returned_null";
       logger.warn("LINE webhook: Supabase を利用できません（LINE には復旧案内を返します）", {
         reason,
         hint: "GET /health で supabase_hint・supabase_jwt_role を確認してください",
