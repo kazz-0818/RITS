@@ -30,7 +30,64 @@ function firstNonTextMessageReplyToken(events: unknown[]): string | null {
   return null;
 }
 
+const SUPABASE_UNAVAILABLE_LINES = [
+  "RITS: 正式ログ台帳の Supabase に接続できていません（監査・保存・生成処理は実行できません）。",
+  "Render の SUPABASE_URL（https の Project URL）と SUPABASE_SERVICE_ROLE_KEY（service_role）を確認し、ブラウザで /health と /health/supabase-tables を開いてください。",
+] as const;
+
 type LineDeps = { env: Env; supabase: SupabaseClient; openai: OpenAI };
+
+/**
+ * Supabase 未接続時でも LINE には必ず返す（無反応にしない）。
+ * 台帳は Supabase が正という思想に沿い、復旧手順のみ案内する。
+ */
+async function processLineWebhookNoSupabase(params: {
+  env: Env;
+  events: LineMessageEvent[];
+  rawList: unknown[];
+  reason: string;
+}): Promise<void> {
+  const { env, events, rawList, reason } = params;
+  let anyText = false;
+
+  for (const ev of events) {
+    const text = ev.message.text?.trim();
+    if (!text) continue;
+    anyText = true;
+    const res = await replyMessage({
+      channelAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN,
+      replyToken: ev.replyToken,
+      texts: [...SUPABASE_UNAVAILABLE_LINES, `（診断: ${reason.slice(0, 120)}）`],
+    });
+    if (!res.ok) {
+      logger.warn("LINE no-supabase reply failed", { status: res.status, body: res.body.slice(0, 500) });
+    }
+  }
+
+  if (!anyText && rawList.length > 0) {
+    const token = firstNonTextMessageReplyToken(rawList);
+    if (token) {
+      const res = await replyMessage({
+        channelAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN,
+        replyToken: token,
+        texts: [
+          ...SUPABASE_UNAVAILABLE_LINES,
+          "テキストでの送信をお願いします（スタンプのみの場合は上記の通りです）。",
+        ],
+      });
+      if (!res.ok) {
+        logger.warn("LINE no-supabase fallback reply failed", { status: res.status, body: res.body.slice(0, 500) });
+      }
+    } else {
+      logger.warn("LINE webhook: Supabase 未接続かつテキストイベントなし", {
+        reason,
+        raw_event_types: rawList.map((e) =>
+          e && typeof e === "object" && "type" in e ? (e as { type?: string }).type : "?",
+        ),
+      });
+    }
+  }
+}
 
 /**
  * LINE は Webhook の HTTP 応答を短時間で要求するため、ACK（200）後に実行する。
@@ -132,16 +189,6 @@ export function createLineWebhookApp(env: Env) {
       return c.text("Forbidden", 403);
     }
 
-    const supabaseBlock = getSupabaseEnvBlockReason(env);
-    const supabase = supabaseBlock ? null : tryCreateSupabaseAdmin(env);
-    if (!supabase) {
-      logger.warn("LINE webhook: Supabase を利用できません", {
-        reason: supabaseBlock ?? "createClient_returned_null",
-        hint: "GET /health で supabase_hint・supabase_jwt_role を確認してください",
-      });
-      return c.text("OK", 200);
-    }
-
     let json: unknown;
     try {
       json = JSON.parse(rawBody) as unknown;
@@ -152,6 +199,23 @@ export function createLineWebhookApp(env: Env) {
 
     const events = parseLineEvents(json);
     const rawList = coerceWebhookEvents(json);
+
+    const supabaseBlock = getSupabaseEnvBlockReason(env);
+    const supabase = supabaseBlock ? null : tryCreateSupabaseAdmin(env);
+
+    if (!supabase) {
+      const reason = supabaseBlock ?? "createClient_returned_null";
+      logger.warn("LINE webhook: Supabase を利用できません（LINE には復旧案内を返します）", {
+        reason,
+        hint: "GET /health で supabase_hint・supabase_jwt_role を確認してください",
+        raw_event_count: rawList.length,
+        parsed_text_message_count: events.length,
+      });
+      void processLineWebhookNoSupabase({ env, events, rawList, reason }).catch((err) => {
+        logger.error("LINE webhook no-supabase task failed", { err: String(err) });
+      });
+      return c.text("OK", 200);
+    }
 
     logger.info("LINE webhook accepted (processing async)", {
       raw_event_count: rawList.length,
