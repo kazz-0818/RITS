@@ -1,5 +1,9 @@
 # RITS（リツ）
 
+## Veriora 組織OS
+
+このリポジトリは **Veriora** の AI 人事部エージェント（**RITS**）です。組織共通の規約・registry・手順は [`AGENTS.md`](AGENTS.md) と [`docs/veriora-architecture.md`](docs/veriora-architecture.md) を参照してください。環境変数テンプレートは [`.env.example`](.env.example) です。
+
 RITSは「人間の人事」ではなく、稼働中のAIエージェント（NEAR / SERA / LIRA 等）を**監査・評価・改善提案**するための **AI人事** です。
 
 ## 設計方針（重要）
@@ -38,7 +42,7 @@ npm run dev
 
 ## `.env` 設定
 
-プロジェクト直下の [`.env`](.env) を編集します（**Gitにコミットしないでください**）。
+テンプレート: [`.env.example`](.env.example)。プロジェクト直下の [`.env`](.env) を編集します（**Gitにコミットしないでください**）。
 
 | 変数 | 説明 |
 |------|------|
