@@ -5,6 +5,7 @@
  */
 export interface AgentDefinition {
   id: string;
+  agentKey: string;
   code: string;
   kana: string;
   department: string;

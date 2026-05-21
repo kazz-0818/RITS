@@ -46,6 +46,7 @@ export async function createAgentLog(
 
   if (error) throw new Error(`createAgentLog failed: ${error.message}`);
   if (!data?.id) throw new Error("createAgentLog failed: missing id");
+  // TODO(Phase 3+): VERIORA_CORE_DUAL_WRITE + DATABASE_URL 時に veriora.messages へ best-effort デュアル書き込み
   return { id: data.id as string };
 }
 
