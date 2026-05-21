@@ -20,7 +20,7 @@
 - **Veliora OS（NEAR ドキュメント）**: `docs/VELIORA_OS.md` — `veliora.ai_agents`, `veliora.line_message_events`, `veliora.line_messages` VIEW 等。
 - **NEAR 業務テーブル**: `near.*`（migration により `public` から移行済みの構成）。
 - **SERA 業務テーブル**: `sera.*`。
-- **RITS（Supabase `public`）**: `src/db/schema.sql` — `agent_profiles`, `agent_logs`, `agent_audits`, `unsupported_requests` 等。
+- **RITS（Supabase `public`）**: `rits_schema_migrations/`（`001`〜`004`）— `agent_profiles`, `agent_logs`, `agent_audits`, `unsupported_requests` 等。
 
 ## 将来の共通テーブル案（新規作成時の名前候補）
 

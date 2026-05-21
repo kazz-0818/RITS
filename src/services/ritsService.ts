@@ -98,7 +98,7 @@ function userFacingRitsErrorLines(e: unknown, appBaseUrl: string): string[] {
   ) {
     const base = appBaseUrl.replace(/\/+$/, "");
     return [
-      "RITS: Supabase の必須テーブルにアクセスできていません（別プロジェクトの URL / 未実行の schema.sql / キー誤りが多いです）。",
+      "RITS: Supabase の必須テーブルにアクセスできていません（別プロジェクトの URL / 未実行の rits_schema_migrations / キー誤りが多いです）。",
       `ブラウザで ${base}/health と ${base}/health/supabase-tables を確認してください（project_ref・jwt_role・missing_tables）。`,
     ];
   }

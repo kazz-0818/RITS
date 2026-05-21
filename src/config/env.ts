@@ -20,7 +20,7 @@ export const EnvSchema = z.object({
   /** 未設定時はビルド/デプロイを落とさないよう既定モデル */
   OPENAI_MODEL: z.preprocess((v) => {
     const s = stripEnvValue(v);
-    return s.length === 0 ? "gpt-4o-mini" : s;
+    return s.length === 0 ? "gpt-4.1-mini" : s;
   }, z.string().min(1)),
   LINE_CHANNEL_ACCESS_TOKEN: EnvString,
   LINE_CHANNEL_SECRET: EnvString,

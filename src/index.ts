@@ -3,8 +3,10 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { loadEnv } from "./config/env.js";
 import { logger } from "./lib/logger.js";
+import { createOpenAIClient } from "./lib/openai.js";
 import { tryCreateSupabaseAdmin } from "./lib/supabase.js";
 import { listMissingOrBrokenTables, probeRitsPublicTables } from "./lib/supabaseSchemaCheck.js";
+import { startDailyOwnerPushScheduler } from "./services/ownerDailyPushService.js";
 import { healthApp } from "./routes/health.js";
 import { createAdminApp } from "./routes/admin.js";
 import { createLineWebhookApp } from "./routes/lineWebhook.js";
@@ -68,5 +70,12 @@ serve(
         logger.info("起動時診断: Supabase 必須テーブル OK");
       }
     })();
+
+    const openai = createOpenAIClient(env.OPENAI_API_KEY);
+    startDailyOwnerPushScheduler({
+      env,
+      getSupabase: () => tryCreateSupabaseAdmin(env),
+      getOpenai: () => openai,
+    });
   },
 );

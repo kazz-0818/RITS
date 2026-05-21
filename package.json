@@ -13,7 +13,8 @@
     "start": "node dist/index.js",
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "seed:test-logs": "tsx src/scripts/seedTestLogs.ts"
+    "seed:test-logs": "tsx src/scripts/seedTestLogs.ts",
+    "cron:daily-owner-push": "tsx src/scripts/cronDailyOwnerPush.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",

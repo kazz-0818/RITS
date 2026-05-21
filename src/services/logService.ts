@@ -305,6 +305,24 @@ export async function getDailyReportByDate(
   return mapDaily(data);
 }
 
+/** 005 未適用時は false（push 自体は成功させる） */
+export async function markDailyReportOwnerLinePushed(
+  supabase: SupabaseClient,
+  reportDate: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("daily_reports")
+    .update({ owner_line_pushed_at: new Date().toISOString() })
+    .eq("report_date", reportDate);
+
+  if (!error) return true;
+  const msg = error.message ?? "";
+  if (msg.includes("owner_line_pushed_at") || error.code === "PGRST204") {
+    return false;
+  }
+  throw new Error(`markDailyReportOwnerLinePushed failed: ${msg}`);
+}
+
 export async function getAgentProfileByName(
   supabase: SupabaseClient,
   agentName: string,

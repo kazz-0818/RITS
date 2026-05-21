@@ -73,23 +73,51 @@ export async function pushMessage(params: {
   to: string;
   text: string;
 }): Promise<{ ok: boolean; status: number; body: string }> {
-  const url = "https://api.line.me/v2/bot/message/push";
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${params.channelAccessToken}`,
-    },
-    body: JSON.stringify({
-      to: params.to,
-      messages: [{ type: "text", text: params.text }],
-    }),
+  const r = await pushMessages({
+    channelAccessToken: params.channelAccessToken,
+    to: params.to,
+    texts: [params.text],
   });
-  const body = await res.text();
-  if (!res.ok) {
-    logger.warn("LINE pushMessage failed", { status: res.status, body });
+  return r.results[0] ?? { ok: false, status: 0, body: "no push result" };
+}
+
+/** 1回の push で最大5件まで。それ以上は複数回に分割 */
+export async function pushMessages(params: {
+  channelAccessToken: string;
+  to: string;
+  texts: string[];
+}): Promise<{ ok: boolean; results: { ok: boolean; status: number; body: string }[] }> {
+  const url = "https://api.line.me/v2/bot/message/push";
+  const normalized = params.texts.filter((t) => t.trim().length > 0);
+  const toSend = (normalized.length > 0 ? normalized : ["（空の応答）"]).map((text) => ({
+    type: "text" as const,
+    text,
+  }));
+
+  const results: { ok: boolean; status: number; body: string }[] = [];
+  for (let i = 0; i < toSend.length; i += 5) {
+    const batch = toSend.slice(i, i + 5);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.channelAccessToken}`,
+      },
+      body: JSON.stringify({
+        to: params.to,
+        messages: batch,
+      }),
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      logger.warn("LINE pushMessages failed", { status: res.status, body: body.slice(0, 500) });
+    }
+    results.push({ ok: res.ok, status: res.status, body });
+    if (!res.ok) {
+      return { ok: false, results };
+    }
   }
-  return { ok: res.ok, status: res.status, body };
+  return { ok: true, results };
 }
 
 /** LINE 1 メッセージあたりの上限に合わせて分割（余裕を見て 4500 文字） */

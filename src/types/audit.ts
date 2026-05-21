@@ -42,6 +42,7 @@ export const DailyReportRowSchema = z.object({
   total_score: z.number().nullable(),
   priority_issues: z.string().nullable(),
   cursor_instruction: z.string().nullable(),
+  owner_line_pushed_at: z.string().nullable().optional(),
   created_at: z.string(),
 });
 

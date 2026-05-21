@@ -7,6 +7,7 @@ import { CreateAgentLogInputSchema } from "../types/agent.js";
 import * as logService from "../services/logService.js";
 import * as auditService from "../services/auditService.js";
 import * as reportService from "../services/reportService.js";
+import { pushDailyReportToOwner } from "../services/ownerDailyPushService.js";
 import { getJstDateString } from "../lib/date.js";
 
 export function createAdminApp(env: Env) {
@@ -64,6 +65,26 @@ export function createAdminApp(env: Env) {
       reportDate,
     });
     return c.json({ ok: true, report_date: reportDate, id: created.id });
+  });
+
+  const PushOwnerSchema = z.object({
+    force: z.boolean().optional().default(false),
+  });
+
+  /** 日次監査を LINE_OWNER_USER_ID へ push（手動・cron 用） */
+  app.post("/admin/reports/daily/push-owner", async (c) => {
+    const supabase = tryCreateSupabaseAdmin(env);
+    if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+
+    const body = PushOwnerSchema.parse(await c.req.json().catch(() => ({})));
+    const result = await pushDailyReportToOwner({
+      env,
+      supabase,
+      openai,
+      force: body.force,
+    });
+    if (!result.ok) return c.json({ ok: false, error: result.error }, 500);
+    return c.json(result);
   });
 
   return app;

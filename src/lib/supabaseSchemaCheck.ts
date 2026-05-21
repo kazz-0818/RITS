@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** schema.sql が作成する public テーブル（順不同） */
+/** rits_schema_migrations が作成する public テーブル（順不同） */
 export const RITS_PUBLIC_TABLES = [
   "agent_profiles",
   "agent_logs",
@@ -24,7 +24,8 @@ export async function probeRitsPublicTables(
 
   await Promise.all(
     RITS_PUBLIC_TABLES.map(async (name) => {
-      const { error } = await supabase.from(name).select("*", { count: "exact", head: true });
+      // head:true だけだと PostgREST のスキーマキャッシュ未反映時に 204 で誤って ok になることがある
+      const { error } = await supabase.from(name).select("id").limit(1);
       if (error) {
         probes[name] = {
           ok: false,

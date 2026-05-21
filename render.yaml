@@ -1,3 +1,12 @@
+# Render Blueprint — RITS Web + 日次オーナー push 用 Cron
+# Cron は UTC 0:00 = JST 9:00 に Web の /admin/reports/daily/push-owner を叩く（無料 Web のスリープ対策）
+
+envVarGroups:
+  - name: rits-secrets
+    envVars:
+      - key: ADMIN_API_KEY
+        sync: false
+
 services:
   - type: web
     name: rits
@@ -8,6 +17,7 @@ services:
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
+      - fromGroup: rits-secrets
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -20,12 +30,33 @@ services:
         sync: false
       - key: LINE_CHANNEL_SECRET
         sync: false
+      - key: LINE_OWNER_USER_ID
+        sync: false
+      - key: DAILY_OWNER_PUSH_TIME_JST
+        value: "09:00"
+      # 本番の定期 push は Cron に任せる（Web 常時起動時の二重送信を避ける）
+      - key: DAILY_OWNER_PUSH_ENABLED
+        value: "false"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: ADMIN_API_KEY
-        sync: false
-      # 未設定なら実行時に RENDER_EXTERNAL_URL（Render が自動付与）を APP_BASE_URL として使います
       - key: APP_BASE_URL
         sync: false
+
+  - type: cron
+    name: rits-daily-owner-push
+    runtime: node
+    plan: free
+    region: oregon
+    # 毎日 00:00 UTC = 09:00 JST（日本はサマータイムなし）
+    schedule: "0 0 * * *"
+    buildCommand: npm install && npm run build
+    startCommand: node dist/scripts/cronDailyOwnerPush.js
+    envVars:
+      - fromGroup: rits-secrets
+      - key: RITS_WEB_HOST
+        fromService:
+          type: web
+          name: rits
+          property: host

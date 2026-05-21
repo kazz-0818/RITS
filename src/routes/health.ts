@@ -12,7 +12,7 @@ import { logger } from "../lib/logger.js";
 export const healthApp = new Hono();
 
 const SCHEMA_HINT =
-  "DBにRITS用テーブルがありません。Supabase Dashboard → SQL Editor で、リポジトリの src/db/schema.sql を全文コピーして一度だけ実行してください。";
+  "DBにRITS用テーブルがありません。Supabase Dashboard → SQL Editor で、rits_schema_migrations/ の 001〜004 を順に実行してください（README 参照）。";
 
 /** 6 テーブルまとめて診断（手動・監視用。Render の healthCheckPath には使わない） */
 healthApp.get("/health/supabase-tables", async (c) => {

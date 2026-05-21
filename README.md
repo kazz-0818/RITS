@@ -62,12 +62,18 @@ npm run dev
 
 - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` に **「ここに…」の日本語プレースホルダーが残っている間**は、Supabase接続を作れません。**`/admin/*` は 503**、**`/webhook/line` は LINE 仕様のため 200 を返しますが、イベントは処理されません**（会話ログの保存・返信には実値が必要です）。**`GET /health`** では `supabase_ok` と失敗時のみ `supabase_hint`（秘密は出しません）を返すので、Render の変数名・**前後の引用符**・コピペ混入を切り分けできます。
 
-## Supabase: `schema.sql` の適用
+## Supabase: `rits_schema_migrations` の適用
 
-SQLは [`src/db/schema.sql`](src/db/schema.sql) にあります。
+SQL はリポジトリ直下の [`rits_schema_migrations/`](rits_schema_migrations/) にあります（NEAR の `near_schema_migrations` と同様の番号付き運用）。
 
 1. Supabase Dashboard → SQL Editor
-2. `schema.sql` の内容を貼り付けて実行
+2. **`001` → `002` → `003` → `004`** を順に貼り付けて実行（詳細は [`rits_schema_migrations/README.md`](rits_schema_migrations/README.md)）
+
+一括で貼る場合（ターミナル）:
+
+```bash
+cat rits_schema_migrations/00*.sql | pbcopy
+```
 
 テーブル:
 
@@ -136,6 +142,44 @@ curl -sS -X POST "$APP_BASE_URL/admin/reports/daily" \
   -H "content-type: application/json" \
   -H "x-admin-api-key: $ADMIN_API_KEY" \
   -d '{}'
+```
+
+## オーナーへ日次監査を LINE push
+
+`LINE_OWNER_USER_ID` が設定されているとき、サーバー起動中は **毎日 JST 09:00**（`DAILY_OWNER_PUSH_TIME_JST` で変更可）に、日次レポートを **push** します。同日の二重送信は `daily_reports.owner_line_pushed_at` で防ぎます（[`005_daily_reports_owner_line_pushed.sql`](rits_schema_migrations/005_daily_reports_owner_line_pushed.sql) を適用）。
+
+手動で今すぐ送る:
+
+```bash
+curl -sS -X POST "$APP_BASE_URL/admin/reports/daily/push-owner" \
+  -H "content-type: application/json" \
+  -H "x-admin-api-key: $ADMIN_API_KEY" \
+  -d '{"force":false}'
+```
+
+再送する場合は `"force":true`（本日分を再度 push）。
+
+| 環境変数 | 説明 |
+|----------|------|
+| `LINE_OWNER_USER_ID` | push 先の LINE ユーザー ID |
+| `DAILY_OWNER_PUSH_TIME_JST` | 送信時刻（既定 `09:00`、Asia/Tokyo） |
+| `DAILY_OWNER_PUSH_ENABLED` | `false` で自動 push のみ停止 |
+
+Render 本番でも `LINE_OWNER_USER_ID` を Dashboard に設定してください。
+
+### 無料 Web + 毎朝自動 push（Render Cron）
+
+Web サービスがスリープするとアプリ内の 9:00 スケジューラは動きません。`render.yaml` の **`rits-daily-owner-push`**（Cron）が **毎日 UTC 0:00（JST 9:00）** に `POST /admin/reports/daily/push-owner` を実行します。
+
+1. Blueprint を再適用するか、Dashboard で Cron サービス `rits-daily-owner-push` を作成
+2. Cron に **同じ `ADMIN_API_KEY`**（`rits-secrets` グループまたは手動設定）
+3. Web の `DAILY_OWNER_PUSH_ENABLED` は本番 Blueprint では **`false`**（Cron に一本化）
+
+ローカルで Cron 相当を試す:
+
+```bash
+export $(grep -v '^#' .env | grep -v '^$' | xargs)
+npm run cron:daily-owner-push
 ```
 
 ## LINEコマンド（例）
