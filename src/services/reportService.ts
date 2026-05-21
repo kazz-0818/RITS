@@ -6,8 +6,10 @@ import { getUtcIso24HoursAgo } from "../lib/date.js";
 import { generateJson } from "../lib/openai.js";
 import { DailyReportAiSchema, buildDailyReportSystemPrompt, buildDailyReportUserPrompt } from "../prompts/reportPrompt.js";
 import * as logService from "./logService.js";
+import * as llmUsageService from "./llmUsageService.js";
+import { getJstDateString } from "../lib/date.js";
 
-const TARGET_AGENTS = ["NEAR", "SERA", "LIRA"] as const;
+const TARGET_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
 
 function riskRank(r: string | null): number {
   const x = (r ?? "low").toLowerCase();
@@ -110,7 +112,16 @@ export async function generateAndStoreDailyReport(params: {
     (TARGET_AGENTS as readonly string[]).includes(a.agent_name),
   );
 
-  const bundle = buildDeterministicBundle({ sinceIso, logsByAgent, audits });
+  const bundleBase = buildDeterministicBundle({ sinceIso, logsByAgent, audits });
+  const reportDate = params.reportDate;
+  let llmSection = "";
+  try {
+    const llmSummary = await llmUsageService.getLlmUsageDailySummary(params.supabase, reportDate);
+    llmSection = llmUsageService.formatLlmUsageBundleSection(llmSummary);
+  } catch {
+    llmSection = "## LLM_usage_JST_day\n(no data or migration 017 not applied)";
+  }
+  const bundle = `${bundleBase}\n\n${llmSection}`;
 
   const gen = await generateJson({
     client: params.openai,
@@ -146,11 +157,14 @@ export async function generateAndStoreDailyReport(params: {
   });
 }
 
-export function formatDailyReportForLine(row: DailyReportRow): string {
+export async function formatDailyReportForLine(
+  row: DailyReportRow,
+  options?: { supabase?: import("@supabase/supabase-js").SupabaseClient }
+): Promise<string> {
   const parts: string[] = [];
   parts.push("【RITS 日次監査】");
   parts.push("");
-  parts.push("対象：NEAR / SERA / LIRA");
+  parts.push("対象：NEAR / SERA / LIRA / LRAM");
   parts.push("");
   parts.push("■ 総評");
   parts.push(row.summary ?? "(summary empty)");
@@ -169,6 +183,22 @@ export function formatDailyReportForLine(row: DailyReportRow): string {
   parts.push("");
   parts.push(`total_score: ${row.total_score ?? "?"}`);
   parts.push("");
+
+  if (options?.supabase) {
+    try {
+      const llm = await llmUsageService.getLlmUsageDailySummary(
+        options.supabase,
+        row.report_date ?? getJstDateString(new Date())
+      );
+      parts.push(llmUsageService.formatLlmUsageForLine(llm));
+      parts.push("");
+    } catch {
+      parts.push("■ LLM 使用量");
+      parts.push("（集計不可: migration 017_llm_usage_events を適用してください）");
+      parts.push("");
+    }
+  }
+
   parts.push("必要であれば、Cursor向けの修正指示文を作成できます。");
   return parts.join("\n");
 }

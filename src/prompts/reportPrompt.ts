@@ -16,12 +16,15 @@ export function buildDailyReportSystemPrompt(): string {
     "- total_score: integer 0-100（全体の粗い総合。厳しめ）",
     "- priority_issues: string（箇条書きテキスト。番号付きでもよい）",
     "- cursor_instruction: string（優先改善のCursor指示のたたき台）",
+    "",
+    "入力に ## LLM_usage_JST_day がある場合は、summary または priority_issues に",
+    "エージェント別トークン占有率（稼働シェア）を1〜2文で触れてよい（数値は入力を優先）。",
   ].join("\n");
 }
 
 export function buildDailyReportUserPrompt(params: { bundle: string }): string {
   return [
-    "以下は直近24時間のログ/監査の集計です。RITSの日次監査レポート用JSONを作ってください。",
+    "以下は直近24時間のログ/監査/LLM使用量の集計です。RITSの日次監査レポート用JSONを作ってください。",
     "",
     params.bundle,
   ].join("\n");

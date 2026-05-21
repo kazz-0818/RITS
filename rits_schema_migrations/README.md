@@ -11,6 +11,8 @@ RITS 用 Postgres（Supabase `public`）の **番号付き migration** です。
 | `003_triggers_updated_at.sql` | `updated_at` トリガ |
 | `004_seed_agent_profiles.sql` | NEAR / SERA / LIRA / RITS 初期データ |
 | `005_daily_reports_owner_line_pushed.sql` | オーナー日次 LINE push 済み時刻（任意・二重送信防止） |
+| … | `006`–`016` Veriora 横断 schema（別ドキュメント） |
+| `017_llm_usage_events.sql` | **LLM usage イベント**（`/admin/usage`・日次稼働率） |
 
 ## Supabase SQL Editor での手順
 

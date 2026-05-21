@@ -133,6 +133,23 @@ curl -sS -X POST "$APP_BASE_URL/admin/audit/run" \
   -d '{"agent_name":"SERA","limit":20}'
 ```
 
+## LLM 使用率（各エージェント → RITS）
+
+`POST /admin/usage`（NEAR / SERA / LIRA / LRAM が usage を送信。詳細は [`docs/llm-usage-api-planned.md`](docs/llm-usage-api-planned.md)）
+
+```bash
+curl -sS -X POST "$APP_BASE_URL/admin/usage" \
+  -H "content-type: application/json" \
+  -H "x-admin-api-key: $ADMIN_API_KEY" \
+  -d '{"agent_name":"NEAR","model":"gpt-4o-mini","prompt_tokens":100,"completion_tokens":40,"source":"test"}'
+```
+
+集計プレビュー: `GET /admin/usage/summary?date=YYYY-MM-DD`（同日 JST 暦日）
+
+**DB**: `rits_schema_migrations/017_llm_usage_events.sql` を Supabase に適用してください。
+
+日次 LINE レポート・`POST /admin/reports/daily` の本文に **LLM トークン占有率** が含まれます。
+
 ## 日次レポート生成API
 
 `POST /admin/reports/daily`

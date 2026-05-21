@@ -84,7 +84,7 @@ export async function pushDailyReportToOwner(params: {
     return { ok: false, error: "日次レポートの取得に失敗しました" };
   }
 
-  const body = reportService.formatDailyReportForLine(row);
+  const body = await reportService.formatDailyReportForLine(row, { supabase: params.supabase });
   const chunks = chunkLineText(body, 4500);
   const pushRes = await pushMessages({
     channelAccessToken: params.env.LINE_CHANNEL_ACCESS_TOKEN,

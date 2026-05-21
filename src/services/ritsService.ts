@@ -172,7 +172,9 @@ export async function handleRitsLineText(params: {
         });
         row = await logService.getDailyReportByDate(params.deps.supabase, reportDate);
       }
-      const body = row ? reportService.formatDailyReportForLine(row) : "日次レポートの生成に失敗しました。";
+      const body = row
+        ? await reportService.formatDailyReportForLine(row, { supabase: params.deps.supabase })
+        : "日次レポートの生成に失敗しました。";
       const chunks = chunkLineText(body, 4500).slice(0, 5);
       await sendLineReply(params.deps, params.replyToken, chunks, "DAILY_REPORT");
       return;

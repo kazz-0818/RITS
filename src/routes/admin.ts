@@ -9,6 +9,8 @@ import * as auditService from "../services/auditService.js";
 import * as reportService from "../services/reportService.js";
 import { pushDailyReportToOwner } from "../services/ownerDailyPushService.js";
 import { getJstDateString } from "../lib/date.js";
+import { LlmUsageIngestSchema } from "../types/llmUsage.js";
+import * as llmUsageService from "../services/llmUsageService.js";
 
 export function createAdminApp(env: Env) {
   const app = new Hono();
@@ -21,6 +23,29 @@ export function createAdminApp(env: Env) {
       return c.json({ ok: false, error: "unauthorized" }, 401);
     }
     return await next();
+  });
+
+  /** 各エージェント（NEAR/SERA/LIRA/LRAM）からの LLM usage 受信 */
+  app.post("/admin/usage", async (c) => {
+    const supabase = tryCreateSupabaseAdmin(env);
+    if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+
+    const body = LlmUsageIngestSchema.parse(await c.req.json());
+    const created = await llmUsageService.ingestLlmUsage(supabase, body);
+    return c.json({ ok: true, id: created.id });
+  });
+
+  app.get("/admin/usage/summary", async (c) => {
+    const supabase = tryCreateSupabaseAdmin(env);
+    if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+
+    const date = c.req.query("date")?.trim() || getJstDateString(new Date());
+    const summary = await llmUsageService.getLlmUsageDailySummary(supabase, date);
+    return c.json({
+      ok: true,
+      summary,
+      line_preview: llmUsageService.formatLlmUsageForLine(summary),
+    });
   });
 
   app.post("/admin/logs", async (c) => {

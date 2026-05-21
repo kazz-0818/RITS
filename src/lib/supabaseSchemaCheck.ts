@@ -8,6 +8,7 @@ export const RITS_PUBLIC_TABLES = [
   "unsupported_requests",
   "system_errors",
   "daily_reports",
+  "llm_usage_events",
 ] as const;
 
 export type RitsTableName = (typeof RITS_PUBLIC_TABLES)[number];
