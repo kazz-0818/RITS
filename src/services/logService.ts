@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { mirrorAgentLogToVerioraMessages } from "./verioraCanonicalLog.js";
 import {
   AgentLogRowSchema,
   type AgentLogRow,
@@ -46,7 +47,14 @@ export async function createAgentLog(
 
   if (error) throw new Error(`createAgentLog failed: ${error.message}`);
   if (!data?.id) throw new Error("createAgentLog failed: missing id");
-  // TODO(Phase 3+): VERIORA_CORE_DUAL_WRITE + DATABASE_URL 時に veriora.messages へ best-effort デュアル書き込み
+  void mirrorAgentLogToVerioraMessages({
+    agent_name: input.agent_name,
+    user_message: input.user_message,
+    agent_reply: input.agent_reply,
+    source: input.source,
+    metadata: input.metadata,
+    log_id: data.id as string,
+  }).catch(() => undefined);
   return { id: data.id as string };
 }
 

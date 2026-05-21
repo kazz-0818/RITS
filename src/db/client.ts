@@ -20,3 +20,14 @@ export function getPool(): Db {
   });
   return pool;
 }
+
+/** デュアル書き込み用。未設定時は null */
+export function tryGetPool(): Db | null {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) return null;
+  try {
+    return getPool();
+  } catch {
+    return null;
+  }
+}

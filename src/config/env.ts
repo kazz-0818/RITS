@@ -1,5 +1,10 @@
+import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
+import { applyRitsEnvAliases } from "./envAlias.js";
 import { normalizeSupabaseProjectUrl, stripEnvValue } from "../lib/envString.js";
+
+loadDotenv();
+applyRitsEnvAliases();
 
 const EnvString = z.preprocess((v) => stripEnvValue(v), z.string().min(1));
 
@@ -29,6 +34,14 @@ export const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: EnvString,
   ADMIN_API_KEY: EnvString,
   APP_BASE_URL: z.preprocess((v) => resolveAppBaseUrl(v), z.string().url({ message: "APP_BASE_URL または RENDER_EXTERNAL_URL が有効な https URL である必要があります" })),
+  /** Veriora canonical デュアル書き込み用（任意） */
+  DATABASE_URL: z.preprocess((v) => {
+    const s = stripEnvValue(v);
+    return s.length === 0 ? undefined : s;
+  }, z.string().url().optional()),
+  VERIORA_CANONICAL_LINE_LOG: z
+    .preprocess((v) => stripEnvValue(v), z.string().optional())
+    .transform((s) => s !== "false" && s !== "0"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
 });
