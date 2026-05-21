@@ -6,7 +6,12 @@ import {
   tryCreateSupabaseAdmin,
 } from "../lib/supabase.js";
 import { peekSupabaseJwtRole } from "../lib/supabaseJwt.js";
-import { listMissingOrBrokenTables, probeRitsPublicTables } from "../lib/supabaseSchemaCheck.js";
+import {
+  listMissingOrBrokenTables,
+  probeRitsPublicTables,
+  RITS_OPTIONAL_TABLES,
+  RITS_REQUIRED_TABLES,
+} from "../lib/supabaseSchemaCheck.js";
 import { logger } from "../lib/logger.js";
 
 export const healthApp = new Hono();
@@ -35,20 +40,25 @@ healthApp.get("/health/supabase-tables", async (c) => {
   const { host: supabase_url_host, projectRef: supabase_project_ref } = describeSupabaseHttpUrl(env.SUPABASE_URL);
   const supabase_jwt_role = peekSupabaseJwtRole(env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { allOk, probes } = await probeRitsPublicTables(supabase);
+  const { allOk, optionalOk, probes } = await probeRitsPublicTables(supabase);
   const supabase_table_probes = Object.fromEntries(
     Object.entries(probes).map(([k, v]) => [
       k,
       v.ok ? { ok: true } : { ok: false, code: v.code, message: v.message },
     ]),
   );
-  const missing = listMissingOrBrokenTables(probes);
-  const supabase_missing_tables = missing.length > 0 ? [...missing] : [];
+  const supabase_missing_tables = listMissingOrBrokenTables(probes, RITS_REQUIRED_TABLES);
+  const supabase_optional_missing_tables = listMissingOrBrokenTables(probes, RITS_OPTIONAL_TABLES);
 
   if (!allOk) {
-    logger.warn("/health/supabase-tables: 一部テーブルにアクセスできません", {
+    logger.warn("/health/supabase-tables: 必須テーブルにアクセスできません", {
       supabase_project_ref,
       missing: supabase_missing_tables,
+    });
+  }
+  if (!optionalOk) {
+    logger.warn("/health/supabase-tables: 任意テーブル未適用", {
+      missing: supabase_optional_missing_tables,
     });
   }
 
@@ -61,53 +71,46 @@ healthApp.get("/health/supabase-tables", async (c) => {
     supabase_project_ref: supabase_project_ref ?? undefined,
     supabase_jwt_role,
     supabase_schema_ok: allOk,
+    supabase_optional_schema_ok: optionalOk,
     ...(allOk ? {} : { supabase_schema_hint: SCHEMA_HINT }),
+    ...(optionalOk
+      ? {}
+      : {
+          supabase_optional_schema_hint:
+            "rits_schema_migrations/017_llm_usage_events.sql を Supabase SQL Editor で実行してください。",
+        }),
     supabase_missing_tables,
+    ...(supabase_optional_missing_tables.length > 0
+      ? { supabase_optional_missing_tables }
+      : {}),
     supabase_table_probes,
   });
 });
 
-/** Render の healthCheck は数秒で失敗するため、既定は 1 クエリのみ（全テーブルは /health/supabase-tables） */
-healthApp.get("/health", async (c) => {
+/**
+ * Render healthCheckPath 用。外部 DB へは触れず即 200（デプロイの port scan / HTTP probe 向け）。
+ * Supabase 実接続・全テーブル診断は GET /health/supabase-tables
+ */
+healthApp.get("/health", (c) => {
   const env = loadEnv();
   const supabaseBlock = getSupabaseEnvBlockReason(env);
-  const supabase = supabaseBlock ? null : tryCreateSupabaseAdmin(env);
-  const supabase_ok = supabase !== null;
+  const supabase_ok = supabaseBlock === null && tryCreateSupabaseAdmin(env) !== null;
   const supabase_hint = supabase_ok ? undefined : supabaseBlock ?? "env_looks_ok_but_createClient_failed_check_logs";
 
   const { host: supabase_url_host, projectRef: supabase_project_ref } = describeSupabaseHttpUrl(env.SUPABASE_URL);
   const supabase_jwt_role = peekSupabaseJwtRole(env.SUPABASE_SERVICE_ROLE_KEY);
 
-  let supabase_schema_ok: boolean | undefined;
-  let supabase_schema_hint: string | undefined;
-
-  if (supabase) {
-    const { error } = await supabase.from("agent_profiles").select("agent_name").limit(1);
-    if (error) {
-      supabase_schema_ok = false;
-      supabase_schema_hint = SCHEMA_HINT;
-      logger.warn("/health: agent_profiles 参照失敗", {
-        code: error.code,
-        message: error.message,
-        supabase_project_ref,
-      });
-    } else {
-      supabase_schema_ok = true;
-    }
-  }
-
   return c.json({
     ok: true,
     service: "RITS",
     timestamp: new Date().toISOString(),
+    port: env.PORT,
+    node_env: env.NODE_ENV,
     supabase_ok,
     ...(supabase_ok ? {} : { supabase_hint }),
     supabase_url_host: supabase_url_host || undefined,
     supabase_project_ref: supabase_project_ref ?? undefined,
     supabase_jwt_role,
-    ...(supabase_ok && supabase_schema_ok !== undefined
-      ? { supabase_schema_ok, ...(supabase_schema_ok ? {} : { supabase_schema_hint }) }
-      : {}),
     supabase_tables_probe_url: "/health/supabase-tables",
   });
 });

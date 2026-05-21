@@ -1,17 +1,26 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** rits_schema_migrations が作成する public テーブル（順不同） */
-export const RITS_PUBLIC_TABLES = [
+/** 001–005 相当（デプロイ・/health 必須） */
+export const RITS_REQUIRED_TABLES = [
   "agent_profiles",
   "agent_logs",
   "agent_audits",
   "unsupported_requests",
   "system_errors",
   "daily_reports",
-  "llm_usage_events",
+] as const;
+
+/** 017 以降（未適用でも起動・デプロイは継続） */
+export const RITS_OPTIONAL_TABLES = ["llm_usage_events"] as const;
+
+export const RITS_PUBLIC_TABLES = [
+  ...RITS_REQUIRED_TABLES,
+  ...RITS_OPTIONAL_TABLES,
 ] as const;
 
 export type RitsTableName = (typeof RITS_PUBLIC_TABLES)[number];
+export type RitsRequiredTableName = (typeof RITS_REQUIRED_TABLES)[number];
+export type RitsOptionalTableName = (typeof RITS_OPTIONAL_TABLES)[number];
 
 export type TableProbe = { ok: true } | { ok: false; code: string; message: string };
 
@@ -20,7 +29,11 @@ export type TableProbe = { ok: true } | { ok: false; code: string; message: stri
  */
 export async function probeRitsPublicTables(
   supabase: SupabaseClient,
-): Promise<{ allOk: boolean; probes: Record<RitsTableName, TableProbe> }> {
+): Promise<{
+  allOk: boolean;
+  optionalOk: boolean;
+  probes: Record<RitsTableName, TableProbe>;
+}> {
   const probes = {} as Record<RitsTableName, TableProbe>;
 
   await Promise.all(
@@ -39,10 +52,14 @@ export async function probeRitsPublicTables(
     }),
   );
 
-  const allOk = RITS_PUBLIC_TABLES.every((n) => probes[n]?.ok === true);
-  return { allOk, probes };
+  const requiredOk = RITS_REQUIRED_TABLES.every((n) => probes[n]?.ok === true);
+  const optionalOk = RITS_OPTIONAL_TABLES.every((n) => probes[n]?.ok === true);
+  return { allOk: requiredOk, optionalOk, probes };
 }
 
-export function listMissingOrBrokenTables(probes: Record<RitsTableName, TableProbe>): RitsTableName[] {
-  return RITS_PUBLIC_TABLES.filter((n) => !probes[n]?.ok);
+export function listMissingOrBrokenTables(
+  probes: Record<RitsTableName, TableProbe>,
+  tables: readonly RitsTableName[] = RITS_PUBLIC_TABLES,
+): RitsTableName[] {
+  return tables.filter((n) => !probes[n]?.ok);
 }

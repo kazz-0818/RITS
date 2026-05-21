@@ -22,6 +22,20 @@ RITSは「人間の人事」ではなく、稼働中のAIエージェント（NE
 - LINE Messaging API
 - Render（`render.yaml`）
 
+## Render デプロイが「Failed」になるとき
+
+ビルドは通るが **起動直後に落ちる** 場合、Render の **Logs** に `[RITS] FATAL: 環境変数が不正` が出ていることが多いです。
+
+| よくある原因 | 対処 |
+|--------------|------|
+| `APP_BASE_URL` に `.env.example` の日本語プレースホルダーが残っている | **削除**するか、実 URL（`https://rits-gj2m.onrender.com` 等）に差し替え。未設定なら Render の `RENDER_EXTERNAL_URL` に自動フォールバック（コード側でもプレースホルダーは無視） |
+| `DATABASE_URL` に DB 接続文字列以外・誤った値 | **削除**するか、正しい `postgresql://...` のみ設定（任意。未設定で問題なし） |
+| `SUPABASE_URL` に `postgresql://...` を入れている | Dashboard → API の **Project URL**（`https://xxxx.supabase.co`）に修正 |
+
+起動後の確認: `GET https://<your-host>/health`（DB 非接触の即時 200。Render の healthCheckPath 向け）、詳細は `GET /health/supabase-tables`（`017` 未適用時は `supabase_optional_missing_tables` に `llm_usage_events` のみ出る想定）。
+
+**`llm_usage_events` 未作成でデプロイが落ちた場合**（ログに `missing:["llm_usage_events"]` と `必須テーブル`）: 旧ビルドです。最新 `main` をデプロイするか、Supabase で `017_llm_usage_events.sql` を実行してください。
+
 ## Render へデプロイ（このリポジトリ）
 
 リポジトリ: `https://github.com/kazz-0818/RITS`

@@ -5,7 +5,12 @@ import { loadEnv } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { createOpenAIClient } from "./lib/openai.js";
 import { tryCreateSupabaseAdmin } from "./lib/supabase.js";
-import { listMissingOrBrokenTables, probeRitsPublicTables } from "./lib/supabaseSchemaCheck.js";
+import {
+  listMissingOrBrokenTables,
+  probeRitsPublicTables,
+  RITS_OPTIONAL_TABLES,
+  RITS_REQUIRED_TABLES,
+} from "./lib/supabaseSchemaCheck.js";
 import { startDailyOwnerPushScheduler } from "./services/ownerDailyPushService.js";
 import { healthApp } from "./routes/health.js";
 import { createAdminApp } from "./routes/admin.js";
@@ -41,35 +46,49 @@ serve(
     hostname: "0.0.0.0",
   },
   (info) => {
-    logger.info("RITS server listening", { port: info.port, nodeEnv: env.NODE_ENV });
-    void (async () => {
-      const s = tryCreateSupabaseAdmin(env);
-      if (!s) {
-        logger.warn("起動時診断: Supabase クライアントを作成できません（環境変数を確認）");
-        return;
-      }
-      const probeMs = 8000;
-      const raced = await Promise.race([
-        probeRitsPublicTables(s).then((r) => ({ kind: "ok" as const, r })),
-        new Promise<{ kind: "timeout" }>((resolve) => {
-          setTimeout(() => resolve({ kind: "timeout" }), probeMs);
-        }),
-      ]);
-      if (raced.kind === "timeout") {
-        logger.warn("起動時診断: テーブルプローブがタイムアウト（手動で GET /health/supabase-tables）", {
-          probeMs,
-        });
-        return;
-      }
-      const { allOk, probes } = raced.r;
-      if (!allOk) {
-        logger.error("起動時診断: Supabase 必須テーブルに問題があります", {
-          missing: listMissingOrBrokenTables(probes),
-        });
-      } else {
-        logger.info("起動時診断: Supabase 必須テーブル OK");
-      }
-    })();
+    logger.info("RITS server listening", {
+      port: info.port,
+      renderPortEnv: process.env.PORT ?? null,
+      nodeEnv: env.NODE_ENV,
+      onRender: Boolean(process.env.RENDER),
+    });
+    // デプロイ直後の port scan / healthCheck を先に通すため DB プローブは遅延
+    const runStartupTableProbe = (): void => {
+      void (async () => {
+        const s = tryCreateSupabaseAdmin(env);
+        if (!s) {
+          logger.warn("起動時診断: Supabase クライアントを作成できません（環境変数を確認）");
+          return;
+        }
+        const probeMs = 8000;
+        const raced = await Promise.race([
+          probeRitsPublicTables(s).then((r) => ({ kind: "ok" as const, r })),
+          new Promise<{ kind: "timeout" }>((resolve) => {
+            setTimeout(() => resolve({ kind: "timeout" }), probeMs);
+          }),
+        ]);
+        if (raced.kind === "timeout") {
+          logger.warn("起動時診断: テーブルプローブがタイムアウト（手動で GET /health/supabase-tables）", {
+            probeMs,
+          });
+          return;
+        }
+        const { allOk, optionalOk, probes } = raced.r;
+        if (!allOk) {
+          logger.error("起動時診断: Supabase 必須テーブルに問題があります", {
+            missing: listMissingOrBrokenTables(probes, RITS_REQUIRED_TABLES),
+          });
+        } else {
+          logger.info("起動時診断: Supabase 必須テーブル OK");
+        }
+        if (!optionalOk) {
+          logger.warn("起動時診断: 任意テーブル未適用（017_llm_usage_events 等）", {
+            missing: listMissingOrBrokenTables(probes, RITS_OPTIONAL_TABLES),
+          });
+        }
+      })();
+    };
+    setTimeout(runStartupTableProbe, 20_000);
 
     const openai = createOpenAIClient(env.OPENAI_API_KEY);
     startDailyOwnerPushScheduler({

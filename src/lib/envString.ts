@@ -12,6 +12,15 @@ export function stripEnvValue(v: unknown): string {
   return s;
 }
 
+/** `.env.example` の日本語プレースホルダーや Render テンプレ URL（未設定扱い） */
+export function isEnvPlaceholder(s: string): boolean {
+  const v = s.trim();
+  if (!v) return true;
+  if (v.includes("ここに")) return true;
+  if (/your-[a-z-]*service\.onrender\.com/i.test(v)) return true;
+  return false;
+}
+
 /** Supabase の「Project URL」コピペで https が抜けたり、/rest/v1 が付いたりするのを直す */
 export function normalizeSupabaseProjectUrl(raw: unknown): string {
   let s = stripEnvValue(raw);

@@ -20,8 +20,7 @@ services:
       - fromGroup: rits-secrets
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "3000"
+      # PORT は Render が自動付与（アプリは process.env.PORT にバインド）
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL

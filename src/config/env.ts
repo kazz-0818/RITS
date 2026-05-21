@@ -1,7 +1,7 @@
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 import { applyRitsEnvAliases } from "./envAlias.js";
-import { normalizeSupabaseProjectUrl, stripEnvValue } from "../lib/envString.js";
+import { isEnvPlaceholder, normalizeSupabaseProjectUrl, stripEnvValue } from "../lib/envString.js";
 
 loadDotenv();
 applyRitsEnvAliases();
@@ -16,7 +16,7 @@ const SupabaseUrl = z.preprocess((v) => normalizeSupabaseProjectUrl(v), z.string
 /** Render Web Service が自動で付与する公開 URL（APP_BASE_URL 未設定時のフォールバック） */
 function resolveAppBaseUrl(raw: unknown): string {
   const s = stripEnvValue(raw);
-  if (s.length > 0) return s;
+  if (s.length > 0 && !isEnvPlaceholder(s)) return s;
   return stripEnvValue(process.env.RENDER_EXTERNAL_URL);
 }
 
@@ -37,13 +37,21 @@ export const EnvSchema = z.object({
   /** Veriora canonical デュアル書き込み用（任意） */
   DATABASE_URL: z.preprocess((v) => {
     const s = stripEnvValue(v);
-    return s.length === 0 ? undefined : s;
+    if (s.length === 0 || isEnvPlaceholder(s)) return undefined;
+    return s;
   }, z.string().url().optional()),
   VERIORA_CANONICAL_LINE_LOG: z
     .preprocess((v) => stripEnvValue(v), z.string().optional())
     .transform((s) => s !== "false" && s !== "0"),
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().positive().default(3000),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default(process.env.RENDER ? "production" : "development"),
+  /** Render は PORT を自動付与。未設定時のみ 3000（ローカル） */
+  PORT: z.preprocess((v) => {
+    const s = stripEnvValue(v ?? process.env.PORT);
+    const n = Number.parseInt(s, 10);
+    return Number.isFinite(n) && n > 0 ? n : 3000;
+  }, z.number().int().positive()),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
