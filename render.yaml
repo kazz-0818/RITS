@@ -13,7 +13,8 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install && npm run build
+    # NODE_ENV=production でも @types/* を入れる（tsc ビルドに必要）
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
@@ -50,7 +51,7 @@ services:
     region: oregon
     # 毎日 00:00 UTC = 09:00 JST（日本はサマータイムなし）
     schedule: "0 0 * * *"
-    buildCommand: npm install && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run build
     startCommand: node dist/scripts/cronDailyOwnerPush.js
     envVars:
       - fromGroup: rits-secrets
