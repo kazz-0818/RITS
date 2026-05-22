@@ -66,6 +66,15 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
 
     const pending = await listMergeCandidates(db, "pending");
     lines.push(`merge_candidates_pending: ${pending.length}`);
+    if (pending.length > 0) {
+      const nearUi =
+        (process.env.VERIORA_NEAR_PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL || "")
+          .trim()
+          .replace(/\/$/, "") || "";
+      lines.push(
+        `merge_admin_ui: ${nearUi ? `${nearUi}/admin/ui` : "NEAR /admin/ui（PUBLIC_BASE_URL 未設定）"}`,
+      );
+    }
     for (const c of pending.slice(0, 8)) {
       lines.push(
         `  - pending ${c.id.slice(0, 8)}… A=${c.customer_id_a.slice(0, 8)} B=${c.customer_id_b.slice(0, 8)} reason=${c.reason ?? "?"}`,
