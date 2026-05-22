@@ -39,6 +39,19 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const healthUrl = `${base}/health`;
+  console.log("[cronDailyOwnerPush] wake GET", healthUrl);
+  try {
+    const healthRes = await fetch(healthUrl, { method: "GET" });
+    console.log("[cronDailyOwnerPush] health", healthRes.status);
+    if (!healthRes.ok) {
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+  } catch (e) {
+    console.warn("[cronDailyOwnerPush] health wake failed (continuing)", e);
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+
   const url = `${base}/admin/reports/daily/push-owner`;
   console.log("[cronDailyOwnerPush] POST", url);
 

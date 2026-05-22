@@ -5,22 +5,18 @@ export const DailyReportAiSchema = DailyReportAiPayloadSchema;
 export function buildDailyReportSystemPrompt(): string {
   return [
     "あなたはRITSの日次レポート生成エンジンです。",
-    "入力はSupabase由来の集計テキストのみです。足りない情報は推測で埋めず、不足は「情報不足」と明記してください。",
+    "入力の logs_count_24h と LLM_usage は事実です。これと矛盾する「活動なし」は書かないでください。",
+    "組織整合性監査の長文リストは priority_issues に入れない（別ドキュメント参照）。",
     "出力はJSONオブジェクト1つだけ（Markdown禁止）。",
     "",
     "JSONキー（必須）:",
-    "- summary: string（全体の総評）",
-    "- near_summary: string（NEAR向け要約。評価っぽい表現でよいが断定しすぎない）",
+    "- summary: string（全体の総評。活動件数に触れる）",
+    "- near_summary: string",
     "- sera_summary: string",
     "- lira_summary: string",
-    "- total_score: integer 0-100（全体の粗い総合。厳しめ）",
-    "- priority_issues: string（箇条書きテキスト。番号付きでもよい）",
-    "- cursor_instruction: string（優先改善のCursor指示のたたき台）",
-    "",
-    "入力に ## LLM_usage_JST_day がある場合は、summary または priority_issues に",
-    "エージェント別トークン占有率（稼働シェア）を1〜2文で触れてよい（数値は入力を優先）。",
-    "入力に ## organization_consistency_audit がある場合は、priority_issues の先頭に",
-    "Critical / Major の組織横断ドリフトを1〜3項目だけ要約して含めてよい。",
+    "- total_score: integer 0-100",
+    "- priority_issues: string（番号付き3〜7項目。各1行・短く）",
+    "- cursor_instruction: string（最優先1件の修正指示）",
   ].join("\n");
 }
 

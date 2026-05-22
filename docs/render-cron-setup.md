@@ -14,7 +14,7 @@
 | Branch | `main` |
 | Region | Oregon |
 | Runtime | Node |
-| Build Command | `npm install && npm run build` |
+| Build Command | `NPM_CONFIG_PRODUCTION=false npm install && npm run build`（またはリポジトリの `.npmrc` の `production=false` を main に含める） |
 | Start Command | `node dist/scripts/cronDailyOwnerPush.js` |
 | Schedule | `0 0 * * *` |
 
@@ -33,6 +33,21 @@
 
 リポジトリの [`render.yaml`](../render.yaml) に Cron 定義済み。Dashboard で Blueprint を Sync すると `rits-daily-owner-push` が作られます。
 
+## 環境変数を .env から一括反映（API）
+
+1. [Render API Keys](https://dashboard.render.com/u/settings#api-keys) でキーを発行
+2. リポジトリルートで:
+
+```bash
+export RENDER_API_KEY='rnd_...'
+chmod +x scripts/render-sync-env.sh
+./scripts/render-sync-env.sh
+```
+
+3. Dashboard で **Save, rebuild, and deploy**（Web と Cron の両方）
+
+Web には `NODE_ENV=production` と `DAILY_OWNER_PUSH_ENABLED=false` を設定。Cron には `ADMIN_API_KEY`（Web と同じ）、`RITS_RENDER_URL`、`APP_BASE_URL` を設定。
+
 ## 手動で Render を直接叩く（テスト）
 
 ```bash
@@ -50,6 +65,18 @@ curl -sS -X POST "https://rits-gj2m.onrender.com/admin/reports/daily/push-owner"
   -H "x-admin-api-key: $ADMIN_API_KEY" \
   -d '{"force":false}'
 ```
+
+## 各部署（NEAR / SERA / LIRA / LRAM）の env
+
+日次レポートの **会話ログ** と **LLM 使用量** を RITS に集約するには、各 Render サービスに次を追加（値は RITS Web の `ADMIN_API_KEY` と同じキーを使う）:
+
+| Key | 例 |
+|-----|-----|
+| `VERIORA_RITS_BASE_URL` | `https://rits-gj2m.onrender.com` |
+| `VERIORA_RITS_ADMIN_API_KEY` | （RITS `ADMIN_API_KEY` と同値） |
+
+- 会話: LINE 返信時に `POST /admin/logs`（コード: 各リポ `ritsIngest` / LIRA `rits_ingest.py`）
+- LLM: 既存 `recordLlmUsage` → `POST /admin/usage`（migration `017_llm_usage_events` 適用済みであること）
 
 ## 前提
 

@@ -3,7 +3,8 @@
 **監査主体**: RITS（AI人事部）  
 **実施日**: 2026-05-22（JST）  
 **第2段階是正**: 2026-05-22 — LRAM doc 同期・migration 053 整合・全リポ architecture/AGENTS 更新・`verify-veriora-sync` 厳格化（`npm run verify:veriora-sync` → OK）  
-**第2段階続き**: 2026-05-22 — NEAR/SERA/LRAM に room Profile API 対応・RITS 日次レポートへ `organization_consistency` 連携  
+**第2段階続き**: 2026-05-22 — NEAR/SERA/LRAM に room Profile API 対応  
+**日次レポート改修**: 2026-05-22 — LINE 体裁整理（活動表先頭・静的監査長文の二重掲載を廃止）・各部署→`POST /admin/logs` 自動転送・Cron で `/health` 起こし  
 **参照正典（設計 doc の物理置き場）**: NEAR `docs/`（監査判定は本レポート＝RITS が実施）
 
 ---
@@ -47,20 +48,20 @@ npm run verify:veriora-sync  → exit 0
 | Registry Python（LIRA） | 別ハッシュ `d0c6c881…`（想定内） |
 | **Registry DRIFT** | TS 3 系統 — **warn のみ、CI はゲートにならない**（NEAR CI `continue-on-error: true`） |
 | Migration 053 | NEAR / SERA / LIRA / RITS: **OK** |
-| Migration LRAM `002_veriora_core_schema.sql` | **DRIFT** — NEAR `053` と手動 diff 要 |
+| Migration LRAM `002_veriora_core_schema.sql` | **2026-05-22 解消** — NEAR `053` と一致（再 verify 推奨） |
 
 ### 3.2 共有ドキュメント（NEAR `docs/` 基準・バイト一致）
 
 | ファイル | SERA | LIRA | RITS | LRAM |
 |----------|------|------|------|------|
-| veriora-architecture.md | DIFF | DIFF | DIFF※ | **MISSING** |
-| env-conventions.md | DIFF | DIFF | DIFF | **MISSING** |
+| veriora-architecture.md | DIFF | DIFF | DIFF※ | **2026-05-22 同期済**（NEAR 基準コピー） |
+| env-conventions.md | DIFF | DIFF | DIFF | **2026-05-22 同期済** |
 | agent-foldering.md | OK | OK | OK | OK |
 | db-conventions.md | OK | OK | OK | OK |
 | supabase-schema.md | DIFF | DIFF | DIFF | DIFF |
 | supabase-simplification.md | OK | OK | OK | OK |
 | migration-plan.md | DIFF | DIFF | DIFF | DIFF |
-| new-agent-checklist.md | OK | OK | OK | **MISSING** |
+| new-agent-checklist.md | OK | OK | OK | **2026-05-22 同期済** |
 
 ※ RITS は本監査実施に伴い「監査と正典の分離」節を追加したため NEAR と意図的に DIFF。NEAR 正典へ反映後、他リポへコピー同期を推奨。
 
@@ -148,10 +149,12 @@ npm run verify:veriora-sync  → exit 0
 
 ## 7. ドリフト一覧（優先度）
 
-### Critical
+### Critical（解消済み・再監査で確認）
 
-1. **LRAM**: `veriora-architecture.md` / `env-conventions.md` / `new-agent-checklist.md` **欠落** → `AGENTS.md` リンク切れ。
-2. **LRAM migration**: `002_veriora_core_schema.sql` が NEAR `053` と **DRIFT**（verify スクリプト指摘）。
+1. ~~**LRAM doc 欠落**~~ → **2026-05-22 同期済**。
+2. ~~**LRAM migration DRIFT**~~ → **2026-05-22 NEAR `053` と一致**。
+
+### Critical（未解消なし — 現時点）
 
 ### Major
 
@@ -165,7 +168,8 @@ npm run verify:veriora-sync  → exit 0
 
 8. **envAlias** ファイルサイズ・ハッシュがリポ間で不一致（エントリ diff の自動化なし）。
 9. **RITS 本番 `/health`**: 監査時タイムアウト — 運用再確認。
-10. **`VERIORA_RITS_*`**: 本番 Render での設定率未確認（コードは ready）。
+10. **`VERIORA_RITS_*`**: 各部署 Render に `VERIORA_RITS_BASE_URL` + `VERIORA_RITS_ADMIN_API_KEY`（RITS `ADMIN_API_KEY` と同値）を設定すると `/admin/logs`・`/admin/usage` が日次に反映される（**2026-05-22 コード接続済**、本番 env は要確認）。
+11. **日次ログが空**: 過去は各部署が RITS へ送っていなかった。LINE 返信時に `ritsIngest` / `rits_ingest` で転送するよう改修済み（**反映後の会話から**件数が増える）。
 
 ---
 
@@ -185,15 +189,11 @@ npm run verify:veriora-sync  → exit 0
 
 ---
 
-## 9. 日次レポートへの取り込み（案）
+## 9. 日次レポート（実装）
 
-現行 `daily_reports` は `near_summary` / `sera_summary` / `lira_summary` 等（[reportService.ts](../src/services/reportService.ts)）。横断整合性は次のいずれかで拡張可能（**第2段階・コード変更**）:
-
-1. **`priority_issues` 末尾**に「組織整合性」サマリを連結（機械検証の Critical/Major 件数のみ）。
-2. **新カラム** `organization_consistency text`（migration + `DailyReportAiSchema` 拡張）。
-3. **専用エンドポイント** `POST /admin/reports/consistency` — 本ファイルを再生成して LINE オーナーへ送る。
-
-推奨: まず (1) で運用し、件数増加後に (2) へ移行。
+- LINE 体裁: [dailyReportLineFormat.ts](../src/lib/dailyReportLineFormat.ts) — **24h 活動表**を先頭、総評・部署別・優先改善・LLM。組織整合性の長文は載せず **本ファイルへのリンク 1 行**。
+- 生成: [reportService.ts](../src/services/reportService.ts) — 静的 `veriora-consistency-audit.md` の LLM 注入は廃止。
+- オーナー push: Render Cron `rits-daily-owner-push`（UTC 0:00 = JST 9:00）または `POST /admin/reports/daily/push-owner`。
 
 ---
 
