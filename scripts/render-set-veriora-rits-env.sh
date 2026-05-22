@@ -81,6 +81,11 @@ for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         v = v[1:-1]
     if k and v:
         out[k] = v
+# 1文字プレースホルダは Sheets 誤検知の原因になるため送らない
+if out.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip() and len(out["GOOGLE_SERVICE_ACCOUNT_JSON"].strip()) < 20:
+    out.pop("GOOGLE_SERVICE_ACCOUNT_JSON", None)
+if out.get("GOOGLE_SERVICE_ACCOUNT_JSON_B64", "").strip() and len(out["GOOGLE_SERVICE_ACCOUNT_JSON_B64"].strip()) < 20:
+    out.pop("GOOGLE_SERVICE_ACCOUNT_JSON_B64", None)
 out["VERIORA_RITS_BASE_URL"] = os.environ["VERIORA_RITS_BASE_URL"]
 out["VERIORA_RITS_ADMIN_API_KEY"] = os.environ["VERIORA_RITS_ADMIN_API_KEY"]
 if "NODE_ENV" not in out:
@@ -100,11 +105,13 @@ PY
   echo "[$name] PUT env-vars HTTP $code (${count} keys from $(basename "$env_file"))"
 }
 
-for name in NEAR SERA LIRA LRAM; do
+TARGETS="${VERIORA_RENDER_ENV_TARGETS:-NEAR SERA LIRA LRAM}"
+for name in $TARGETS; do
   put_env_from_file "$name" "$(service_id "$name")" "$(env_file_for "$name")"
 done
 
-echo "完了。各サービスを再デプロイしてください:"
-for name in NEAR SERA LIRA LRAM; do
+echo "完了。対象: $TARGETS"
+echo "再デプロイ例: VERIORA_RENDER_ENV_TARGETS=NEAR $0 のあと"
+for name in $TARGETS; do
   echo "  render deploys create $(service_id "$name") --confirm"
 done
