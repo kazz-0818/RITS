@@ -3,6 +3,7 @@ export type LineCommandType =
   | "AGENT_ISSUES"
   | "UNSUPPORTED_REQUESTS"
   | "CURSOR_INSTRUCTION"
+  | "HELP_CAPABILITIES"
   | "GENERAL_QUESTION"
   | "UNKNOWN";
 
@@ -11,6 +12,7 @@ export type LineCommand =
   | { type: "AGENT_ISSUES"; agent: "NEAR" | "SERA" | "LIRA" | null }
   | { type: "UNSUPPORTED_REQUESTS" }
   | { type: "CURSOR_INSTRUCTION"; agent: "NEAR" | "SERA" | "LIRA" | null }
+  | { type: "HELP_CAPABILITIES" }
   | { type: "GENERAL_QUESTION" }
   | { type: "UNKNOWN" };
 
@@ -73,6 +75,14 @@ export function classifyLineCommand(rawText: string): LineCommand {
     (/監査/.test(text) && /最近|直近/.test(text))
   ) {
     return { type: "AGENT_ISSUES", agent: detectAgent(text) };
+  }
+
+  if (
+    /何ができ|なにができ|できること|何ができます|何を手伝|使い方|ヘルプ|help|機能一覧|できますか|できる？|仕事は何|役割は/.test(
+      text
+    )
+  ) {
+    return { type: "HELP_CAPABILITIES" };
   }
 
   // 一般（リツ/RITS呼びかけっぽい短文など）

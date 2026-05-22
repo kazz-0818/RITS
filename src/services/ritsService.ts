@@ -5,6 +5,7 @@ import type { Env } from "../config/env.js";
 import { getJstDateString } from "../lib/date.js";
 import { chunkLineText, replyMessage } from "../lib/line.js";
 import { generateText } from "../lib/openai.js";
+import { buildRitsCapabilitiesHelpReply } from "../lib/capabilitiesHelp.js";
 import { buildRitsSystemPrompt } from "../prompts/ritsSystemPrompt.js";
 import { classifyLineCommand } from "./commandService.js";
 import * as logService from "./logService.js";
@@ -258,6 +259,16 @@ export async function handleRitsLineText(params: {
       });
       const chunks = chunkLineText(text, 4500).slice(0, 5);
       await sendLineReply(params.deps, params.replyToken, chunks, "CURSOR_INSTRUCTION");
+      return;
+    }
+
+    if (cmd.type === "HELP_CAPABILITIES") {
+      await sendLineReply(
+        params.deps,
+        params.replyToken,
+        [buildRitsCapabilitiesHelpReply()],
+        "HELP_CAPABILITIES"
+      );
       return;
     }
 
