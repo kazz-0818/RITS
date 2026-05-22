@@ -11,6 +11,9 @@ import {
 import { DailyReportAiSchema, buildDailyReportSystemPrompt, buildDailyReportUserPrompt } from "../prompts/reportPrompt.js";
 import * as logService from "./logService.js";
 import * as llmUsageService from "./llmUsageService.js";
+import { loadEnv } from "../config/env.js";
+import { tryGetPool } from "../db/client.js";
+import { buildCustomerMasterAuditSection } from "./customerAuditQueries.js";
 const TARGET_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
 
 function riskRank(r: string | null): number {
@@ -116,7 +119,25 @@ export async function generateAndStoreDailyReport(params: {
     llmSection = "## LLM_usage_JST_day\nrequests: 0 (migration 017 or no VERIORA_RITS_* on agents)";
   }
 
-  const bundle = buildDeterministicBundle({ sinceIso, logsByAgent, audits, llmSection });
+  let customerSection = "";
+  const env = loadEnv();
+  if (env.VERIORA_CUSTOMER_AUDIT_IN_DAILY_REPORT) {
+    const pool = tryGetPool();
+    if (pool) {
+      try {
+        customerSection = await buildCustomerMasterAuditSection(pool);
+      } catch {
+        customerSection = "## Veriora_customer_master\n(unavailable)";
+      }
+    }
+  }
+
+  const bundle = buildDeterministicBundle({
+    sinceIso,
+    logsByAgent,
+    audits,
+    llmSection: [llmSection, customerSection].filter(Boolean).join("\n\n"),
+  });
 
   const gen = await generateJson({
     client: params.openai,

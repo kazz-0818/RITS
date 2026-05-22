@@ -40,6 +40,16 @@ export const EnvSchema = z.object({
     if (s.length === 0 || isEnvPlaceholder(s)) return undefined;
     return s;
   }, z.string().url().optional()),
+  VERIORA_CUSTOMER_MASTER_ENABLED: z
+    .string()
+    .optional()
+    .transform((s) => s !== "false" && s !== "0"),
+  /** 日次レポート bundle に顧客マスター監査節を付与（DATABASE_URL 必須） */
+  VERIORA_CUSTOMER_AUDIT_IN_DAILY_REPORT: z
+    .string()
+    .optional()
+    .transform((s) => s === "true" || s === "1"),
+
   VERIORA_CANONICAL_LINE_LOG: z
     .preprocess((v) => stripEnvValue(v), z.string().optional())
     .transform((s) => s !== "false" && s !== "0"),

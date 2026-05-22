@@ -1,6 +1,7 @@
 import { loadEnv } from "../config/env.js";
 import { tryGetPool } from "../db/client.js";
 import { saveMessage } from "./supabase/repositories/messages.js";
+import { linkConversationForAgentKey } from "./customers/lineResolve.js";
 
 const AGENT_KEY_BY_NAME: Record<string, string> = {
   NEAR: "near",
@@ -79,6 +80,13 @@ export async function mirrorAgentLogToVerioraMessages(input: {
         role: "assistant",
         text: input.agent_reply.trim(),
       });
+    }
+    if (lineUserId) {
+      void linkConversationForAgentKey(db, {
+        agentKey,
+        conversationKey,
+        lineUserId,
+      }).catch(() => undefined);
     }
   } catch (e) {
     console.warn("[rits] veriora.messages mirror failed (non-fatal)", e);
