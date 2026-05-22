@@ -3,6 +3,7 @@
 **監査主体**: RITS（AI人事部）  
 **実施日**: 2026-05-22（JST）  
 **第2段階是正**: 2026-05-22 — LRAM doc 同期・migration 053 整合・全リポ architecture/AGENTS 更新・`verify-veriora-sync` 厳格化（`npm run verify:veriora-sync` → OK）  
+**第2段階続き**: 2026-05-22 — NEAR/SERA/LRAM に room Profile API 対応・RITS 日次レポートへ `organization_consistency` 連携  
 **参照正典（設計 doc の物理置き場）**: NEAR `docs/`（監査判定は本レポート＝RITS が実施）
 
 ---
@@ -157,7 +158,7 @@ npm run verify:veriora-sync  → exit 0
 3. **Phase / AGENTS 不整合**: `veriora.meta.md`（実装済み）vs `veriora-architecture.md`（未完了表記）、AGENTS「registry 非接続」vs NEAR 実装。
 4. **共有 doc DIFF**: SERA/LIRA/RITS/LRAM で architecture / env / schema / migration-plan が NEAR と不一致（RITS は監査節追加による意図 DIFF 含む）。
 5. **Registry TS**: NEAR≈LRAM と SERA≈RITS の **2 系統** — 意図確認と単一源化または verify の厳格化。
-6. **LINE**: NEAR/SERA/LRAM で **room Profile API 未対応**（LIRA のみ対応）。NEAR `prefixLineReplyWithCaller` **未使用**（`lineCallerSalutation` のみ）。
+6. **LINE**: ~~room Profile API 未対応~~ → **2026-05-22 対応済み**（NEAR/SERA/LRAM）。NEAR `prefixLineReplyWithCaller` **未使用**（`lineCallerSalutation` のみ）— Minor のまま。
 7. **verify-veriora-sync**: warn のみ・CI `continue-on-error` — ドリフトが本番ゲートにならない。
 
 ### Minor

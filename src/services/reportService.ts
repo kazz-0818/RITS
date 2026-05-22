@@ -8,6 +8,10 @@ import { DailyReportAiSchema, buildDailyReportSystemPrompt, buildDailyReportUser
 import * as logService from "./logService.js";
 import * as llmUsageService from "./llmUsageService.js";
 import { getJstDateString } from "../lib/date.js";
+import {
+  formatOrganizationConsistencyForLine,
+  loadOrganizationConsistencyBundleSection,
+} from "./organizationConsistency.js";
 
 const TARGET_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
 
@@ -121,7 +125,8 @@ export async function generateAndStoreDailyReport(params: {
   } catch {
     llmSection = "## LLM_usage_JST_day\n(no data or migration 017 not applied)";
   }
-  const bundle = `${bundleBase}\n\n${llmSection}`;
+  const orgSection = loadOrganizationConsistencyBundleSection();
+  const bundle = [bundleBase, llmSection, orgSection].filter(Boolean).join("\n\n");
 
   const gen = await generateJson({
     client: params.openai,
@@ -145,6 +150,13 @@ export async function generateAndStoreDailyReport(params: {
 
   const total = Math.min(100, Math.max(0, Math.round(payload.total_score)));
 
+  let priorityIssues = payload.priority_issues;
+  const orgBlurb = loadOrganizationConsistencyBundleSection();
+  if (orgBlurb) {
+    const excerpt = orgBlurb.replace(/^## organization_consistency_audit[\s\S]*?\n\n/, "").slice(0, 700);
+    priorityIssues = `[組織整合性監査（抜粋）]\n${excerpt}\n\n${priorityIssues}`;
+  }
+
   return logService.createDailyReport(params.supabase, {
     report_date: params.reportDate,
     summary: payload.summary,
@@ -152,7 +164,7 @@ export async function generateAndStoreDailyReport(params: {
     sera_summary: payload.sera_summary,
     lira_summary: payload.lira_summary,
     total_score: total,
-    priority_issues: payload.priority_issues,
+    priority_issues: priorityIssues,
     cursor_instruction: payload.cursor_instruction,
   });
 }
@@ -181,6 +193,11 @@ export async function formatDailyReportForLine(
   parts.push("■ 優先改善");
   parts.push(row.priority_issues ?? "(empty)");
   parts.push("");
+  const orgLine = formatOrganizationConsistencyForLine();
+  if (orgLine) {
+    parts.push(orgLine);
+    parts.push("");
+  }
   parts.push(`total_score: ${row.total_score ?? "?"}`);
   parts.push("");
 

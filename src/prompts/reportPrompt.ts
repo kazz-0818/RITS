@@ -19,6 +19,8 @@ export function buildDailyReportSystemPrompt(): string {
     "",
     "入力に ## LLM_usage_JST_day がある場合は、summary または priority_issues に",
     "エージェント別トークン占有率（稼働シェア）を1〜2文で触れてよい（数値は入力を優先）。",
+    "入力に ## organization_consistency_audit がある場合は、priority_issues の先頭に",
+    "Critical / Major の組織横断ドリフトを1〜3項目だけ要約して含めてよい。",
   ].join("\n");
 }
 
