@@ -6,6 +6,16 @@
 
 RITSは「人間の人事」ではなく、稼働中のAIエージェント（NEAR / SERA / LIRA 等）を**監査・評価・改善提案**するための **AI人事** です。
 
+## 組織内の役割（Veriora）
+
+| 部署 | 役割 | 監査との関係 |
+|------|------|----------------|
+| **RITS** | AI人事部 — 会話品質・役割遵守・**組織横断の整合性監査** | **監査の実施者**。レポートは `daily_reports` / [`docs/veriora-consistency-audit.md`](docs/veriora-consistency-audit.md) |
+| **NEAR** | 秘書部 — 総合窓口・タスク整理・**LLM 能力が強い裏方** | handoff・オーケストレーション。**監査レポートの主体ではない** |
+| SERA / LIRA / LRAM | 各業務部署 | RITS の**監査対象** |
+
+設計・migration SQL・共有 `docs/` の物理的な正典は NEAR リポに集約されていることが多いが、**整合性の判定・優先度・改善指示は RITS** が行う（正典の置き場と監査主体は分離）。
+
 ## 設計方針（重要）
 
 - **正式な記録台帳は Supabase**（`agent_logs` / `agent_audits` / `daily_reports` など）。
