@@ -14,7 +14,8 @@
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "seed:test-logs": "tsx src/scripts/seedTestLogs.ts",
-    "cron:daily-owner-push": "tsx src/scripts/cronDailyOwnerPush.ts"
+    "cron:daily-owner-push": "tsx src/scripts/cronDailyOwnerPush.ts",
+    "render:push-daily-owner": "bash scripts/render-push-daily-owner.sh"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",

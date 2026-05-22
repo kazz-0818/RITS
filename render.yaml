@@ -54,8 +54,10 @@ services:
     startCommand: node dist/scripts/cronDailyOwnerPush.js
     envVars:
       - fromGroup: rits-secrets
-      - key: RITS_WEB_HOST
-        fromService:
-          type: web
-          name: rits
-          property: host
+      # Cron から Web を直接 HTTPS で叩く（スリープ解除 + push-owner）
+      - key: RITS_RENDER_URL
+        value: https://rits-gj2m.onrender.com
+      - key: APP_BASE_URL
+        value: https://rits-gj2m.onrender.com
+      - key: NODE_ENV
+        value: production

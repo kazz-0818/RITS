@@ -210,17 +210,22 @@ Render 本番でも `LINE_OWNER_USER_ID` を Dashboard に設定してくださ�
 
 ### 無料 Web + 毎朝自動 push（Render Cron）
 
-Web サービスがスリープするとアプリ内の 9:00 スケジューラは動きません。`render.yaml` の **`rits-daily-owner-push`**（Cron）が **毎日 UTC 0:00（JST 9:00）** に `POST /admin/reports/daily/push-owner` を実行します。
+Web サービスがスリープするとアプリ内の 9:00 スケジューラは動きません。Cron **`rits-daily-owner-push`** が **毎日 UTC 0:00（JST 9:00）** に **本番 URL を直接** `POST /admin/reports/daily/push-owner` します。
 
-1. Blueprint を再適用するか、Dashboard で Cron サービス `rits-daily-owner-push` を作成
-2. Cron に **同じ `ADMIN_API_KEY`**（`rits-secrets` グループまたは手動設定）
-3. Web の `DAILY_OWNER_PUSH_ENABLED` は本番 Blueprint では **`false`**（Cron に一本化）
+**Cron 未作成の場合**: [`docs/render-cron-setup.md`](docs/render-cron-setup.md) の手順で Dashboard から作成してください。
 
-ローカルで Cron 相当を試す:
+**手動で Render を直接叩く**:
+
+```bash
+export ADMIN_API_KEY='（Render の rits と同じ値）'
+npm run render:push-daily-owner
+```
+
+ローカル Web 向け（開発）:
 
 ```bash
 export $(grep -v '^#' .env | grep -v '^$' | xargs)
-npm run cron:daily-owner-push
+APP_BASE_URL=http://127.0.0.1:3000 npm run cron:daily-owner-push
 ```
 
 ## LINEコマンド（例）

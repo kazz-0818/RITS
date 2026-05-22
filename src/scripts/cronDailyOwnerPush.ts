@@ -5,7 +5,14 @@
 import "dotenv/config";
 import { stripEnvValue } from "../lib/envString.js";
 
+/** 本番 Render URL を直接叩く（Cron / 手動実行用） */
+const DEFAULT_RENDER_APP_URL = "https://rits-gj2m.onrender.com";
+
 function resolveAppBaseUrl(): string {
+  const renderUrl = stripEnvValue(process.env.RITS_RENDER_URL);
+  if (renderUrl.length > 0) {
+    return renderUrl.replace(/\/+$/, "");
+  }
   const raw = stripEnvValue(process.env.APP_BASE_URL);
   if (raw.length > 0) {
     return raw.replace(/\/+$/, "");
@@ -14,6 +21,9 @@ function resolveAppBaseUrl(): string {
   if (host.length > 0) {
     const h = host.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
     return `https://${h}`;
+  }
+  if (stripEnvValue(process.env.NODE_ENV) === "production") {
+    return DEFAULT_RENDER_APP_URL;
   }
   return "";
 }
