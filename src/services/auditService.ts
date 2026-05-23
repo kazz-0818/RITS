@@ -69,8 +69,10 @@ export async function runAuditForAgent(params: {
 
   const auditIds: string[] = [];
 
-  // 古い順に監査（同日内の流れとして自然）
-  const ordered = [...logs].reverse();
+  // グループ傍受（返信なし）は件数・日次には載るが LLM 監査対象外
+  const ordered = [...logs]
+    .filter((log) => log.intent !== "group_observe" && (log.agent_reply?.trim() ?? "").length > 0)
+    .reverse();
 
   for (const log of ordered) {
     const minimalLog = {
