@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "../lib/logger.js";
 import { mirrorAgentLogToVerioraMessages } from "./verioraCanonicalLog.js";
 import {
   AgentLogRowSchema,
@@ -312,6 +313,41 @@ export async function getDailyReportByDate(
 
   if (error) throw new Error(`getDailyReportByDate failed: ${error.message}`);
   return mapDaily(data);
+}
+
+const DAILY_OWNER_LINE_PUSH_SOURCE = "daily_owner_line_push";
+
+/** 005 未適用時の同日二重 push 防止（agent_logs にマーカー1行） */
+export async function hasDailyOwnerLinePushMarker(
+  supabase: SupabaseClient,
+  reportDate: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("agent_logs")
+    .select("id")
+    .eq("agent_name", "RITS")
+    .eq("source", DAILY_OWNER_LINE_PUSH_SOURCE)
+    .filter("metadata->>report_date", "eq", reportDate)
+    .limit(1);
+
+  if (error) {
+    logger.warn("hasDailyOwnerLinePushMarker failed", { err: error.message, reportDate });
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+export async function recordDailyOwnerLinePushMarker(
+  supabase: SupabaseClient,
+  reportDate: string,
+): Promise<void> {
+  await createAgentLog(supabase, {
+    agent_name: "RITS",
+    user_message: null,
+    agent_reply: `owner daily line push (${reportDate})`,
+    source: DAILY_OWNER_LINE_PUSH_SOURCE,
+    metadata: { report_date: reportDate, kind: "idempotency_marker" },
+  });
 }
 
 /** 005 未適用時は false（push 自体は成功させる） */

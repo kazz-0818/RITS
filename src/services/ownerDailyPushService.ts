@@ -82,26 +82,35 @@ async function pushDailyReportToOwnerInner(params: {
   }
 
   const reportDate = getJstDateString(new Date());
-  let row = await logService.getDailyReportByDate(params.supabase, reportDate);
 
-  if (row?.owner_line_pushed_at && !params.force) {
-    return {
-      ok: true,
-      report_date: reportDate,
-      pushed: false,
-      reason: "本日分は既にオーナーへ push 済みです",
-    };
+  if (!params.force) {
+    const rowEarly = await logService.getDailyReportByDate(params.supabase, reportDate);
+    if (rowEarly?.owner_line_pushed_at) {
+      return {
+        ok: true,
+        report_date: reportDate,
+        pushed: false,
+        reason: "本日分は既にオーナーへ push 済みです",
+      };
+    }
+    if (await logService.hasDailyOwnerLinePushMarker(params.supabase, reportDate)) {
+      return {
+        ok: true,
+        report_date: reportDate,
+        pushed: false,
+        reason: "本日分は既にオーナーへ push 済みです（005 未適用時のマーカー）",
+      };
+    }
   }
 
-  if (!row) {
-    await reportService.generateAndStoreDailyReport({
-      supabase: params.supabase,
-      openai: params.openai,
-      model: params.env.OPENAI_MODEL,
-      reportDate,
-    });
-    row = await logService.getDailyReportByDate(params.supabase, reportDate);
-  }
+  // 【24h 活動】と ■ 各部署 の文言を一致させる（朝の生成結果をそのまま push しない）
+  await reportService.generateAndStoreDailyReport({
+    supabase: params.supabase,
+    openai: params.openai,
+    model: params.env.OPENAI_MODEL,
+    reportDate,
+  });
+  const row = await logService.getDailyReportByDate(params.supabase, reportDate);
 
   if (!row) {
     return { ok: false, error: "日次レポートの取得に失敗しました" };
@@ -125,12 +134,17 @@ async function pushDailyReportToOwnerInner(params: {
     return { ok: false, error: "LINE push に失敗しました（Render ログを確認）" };
   }
 
-  const idempotencyRecorded = await logService.markDailyReportOwnerLinePushed(params.supabase, reportDate);
+  let idempotencyRecorded = await logService.markDailyReportOwnerLinePushed(params.supabase, reportDate);
   if (!idempotencyRecorded) {
-    logger.warn(
-      "日次監査 push 済みの記録に失敗（rits_schema_migrations/005 を適用すると同日の二重送信を防げます）",
-      { report_date: reportDate },
-    );
+    try {
+      await logService.recordDailyOwnerLinePushMarker(params.supabase, reportDate);
+      idempotencyRecorded = true;
+    } catch (e) {
+      logger.warn(
+        "日次監査 push 済みの記録に失敗（rits_schema_migrations/005 を適用すると同日の二重送信を防げます）",
+        { report_date: reportDate, err: String(e) },
+      );
+    }
   }
   logger.info("日次監査をオーナーへ push しました", {
     report_date: reportDate,
