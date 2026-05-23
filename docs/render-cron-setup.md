@@ -66,7 +66,7 @@ curl -sS -X POST "https://rits-gj2m.onrender.com/admin/reports/daily/push-owner"
   -d '{"force":false}'
 ```
 
-## 各部署（NEAR / SERA / LIRA / LRAM）の env
+## 各部署（NEAR / SERA / IRIE / LRAM）の env
 
 日次レポートの **会話ログ** と **LLM 使用量** を RITS に集約するには、各 Render サービスに次を追加（値は RITS Web の `ADMIN_API_KEY` と同じキーを使う）:
 

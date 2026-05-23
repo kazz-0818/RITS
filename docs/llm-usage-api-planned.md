@@ -18,7 +18,7 @@ Content-Type: application/json
 }
 ```
 
-NEAR / SERA / LIRA / LRAM は `recordLlmUsage()` 内で、次が揃っているとき自動 POST します。
+NEAR / SERA / IRIE / LRAM は `recordLlmUsage()` 内で、次が揃っているとき自動 POST します。
 
 - `VERIORA_RITS_BASE_URL`（例: `https://<rits>.onrender.com`）
 - `VERIORA_RITS_ADMIN_API_KEY`（RITS の `ADMIN_API_KEY` と同じ）

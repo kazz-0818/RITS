@@ -9,9 +9,9 @@ export type LineCommandType =
 
 export type LineCommand =
   | { type: "DAILY_REPORT" }
-  | { type: "AGENT_ISSUES"; agent: "NEAR" | "SERA" | "LIRA" | null }
+  | { type: "AGENT_ISSUES"; agent: "NEAR" | "SERA" | "IRIE" | null }
   | { type: "UNSUPPORTED_REQUESTS" }
-  | { type: "CURSOR_INSTRUCTION"; agent: "NEAR" | "SERA" | "LIRA" | null }
+  | { type: "CURSOR_INSTRUCTION"; agent: "NEAR" | "SERA" | "IRIE" | null }
   | { type: "HELP_CAPABILITIES" }
   | { type: "GENERAL_QUESTION" }
   | { type: "UNKNOWN" };
@@ -20,11 +20,11 @@ function normalize(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
-function detectAgent(text: string): "NEAR" | "SERA" | "LIRA" | null {
+function detectAgent(text: string): "NEAR" | "SERA" | "IRIE" | null {
   const u = text.toUpperCase();
   if (u.includes("NEAR")) return "NEAR";
   if (u.includes("SERA")) return "SERA";
-  if (u.includes("LIRA")) return "LIRA";
+  if (u.includes("IRIE") || u.includes("イリ")) return "IRIE";
   return null;
 }
 

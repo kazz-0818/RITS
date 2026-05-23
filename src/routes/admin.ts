@@ -25,7 +25,7 @@ export function createAdminApp(env: Env) {
     return await next();
   });
 
-  /** 各エージェント（NEAR/SERA/LIRA/LRAM）からの LLM usage 受信 */
+  /** 各エージェント（NEAR/SERA/IRIE/LRAM）からの LLM usage 受信 */
   app.post("/admin/usage", async (c) => {
     const supabase = tryCreateSupabaseAdmin(env);
     if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);

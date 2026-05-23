@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LlmUsageDailySummary, LlmUsageEventRow, LlmUsageIngest } from "../types/llmUsage.js";
 import { getJstDayRangeUtc } from "../lib/date.js";
 
-const KNOWN_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM", "RITS"] as const;
+const KNOWN_AGENTS = ["NEAR", "SERA", "IRIE", "LRAM", "RITS"] as const;
 
 function normalizeAgentName(name: string): string {
   const u = name.trim().toUpperCase();

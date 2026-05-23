@@ -29,7 +29,7 @@ async function main(): Promise<void> {
       metadata: { seed: "near_okish" },
     },
     {
-      agent_name: "LIRA",
+      agent_name: "IRIE",
       user_message: "今月の利益教えて",
       agent_reply: "経理管理シートの売上・経費を確認して算出します。",
       intent: "profit_inquiry",

@@ -81,7 +81,7 @@ create table if not exists public.daily_reports (
   summary text,
   near_summary text,
   sera_summary text,
-  lira_summary text,
+  irie_summary text,
   total_score integer,
   priority_issues text,
   cursor_instruction text,

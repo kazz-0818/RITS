@@ -16,7 +16,7 @@ import { tryGetPool } from "../db/client.js";
 import { buildCustomerMasterAuditSection } from "./customerAuditQueries.js";
 import { splitAgentLogsByKind } from "../lib/agentLogStats.js";
 
-const TARGET_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
+const TARGET_AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"] as const;
 
 function riskRank(r: string | null): number {
   const x = (r ?? "low").toLowerCase();
@@ -89,7 +89,7 @@ function fallbackDailyFromBundle(_bundle: string): {
   summary: string;
   near_summary: string;
   sera_summary: string;
-  lira_summary: string;
+  irie_summary: string;
   total_score: number;
   priority_issues: string;
   cursor_instruction: string;
@@ -98,7 +98,7 @@ function fallbackDailyFromBundle(_bundle: string): {
     summary: "日次レポートのJSON生成に失敗しました。活動サマリ（事実）を確認してください。",
     near_summary: "—",
     sera_summary: "—",
-    lira_summary: "—",
+    irie_summary: "—",
     total_score: 50,
     priority_issues: "1) reportService の JSON 検証を確認\n2) 各部署の VERIORA_RITS_* と /admin/logs 転送を確認",
     cursor_instruction: "src/services/reportService.ts と src/prompts/reportPrompt.ts を確認",
@@ -179,7 +179,7 @@ export async function generateAndStoreDailyReport(params: {
     summary: payload.summary,
     near_summary: payload.near_summary,
     sera_summary: payload.sera_summary,
-    lira_summary: payload.lira_summary,
+    irie_summary: payload.irie_summary,
     total_score: total,
     priority_issues: payload.priority_issues,
     cursor_instruction: payload.cursor_instruction,

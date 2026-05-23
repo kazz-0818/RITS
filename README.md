@@ -12,7 +12,7 @@ RITSは「人間の人事」ではなく、稼働中のAIエージェント（NE
 |------|------|----------------|
 | **RITS** | AI人事部 — 会話品質・役割遵守・**組織横断の整合性監査** | **監査の実施者**。レポートは `daily_reports` / [`docs/veriora-consistency-audit.md`](docs/veriora-consistency-audit.md) |
 | **NEAR** | 秘書部 — 総合窓口・タスク整理・**LLM 能力が強い裏方** | handoff・オーケストレーション。**監査レポートの主体ではない** |
-| SERA / LIRA / LRAM | 各業務部署 | RITS の**監査対象** |
+| SERA / IRIE / LRAM | 各業務部署 | RITS の**監査対象** |
 
 設計・migration SQL・共有 `docs/` の物理的な正典は NEAR リポに集約されていることが多いが、**整合性の判定・優先度・改善指示は RITS** が行う（正典の置き場と監査主体は分離）。
 
@@ -161,7 +161,7 @@ curl -sS -X POST "$APP_BASE_URL/admin/audit/run" \
 
 ## LLM 使用率（各エージェント → RITS）
 
-`POST /admin/usage`（NEAR / SERA / LIRA / LRAM が usage を送信。詳細は [`docs/llm-usage-api-planned.md`](docs/llm-usage-api-planned.md)）
+`POST /admin/usage`（NEAR / SERA / IRIE / LRAM が usage を送信。詳細は [`docs/llm-usage-api-planned.md`](docs/llm-usage-api-planned.md)）
 
 ```bash
 curl -sS -X POST "$APP_BASE_URL/admin/usage" \

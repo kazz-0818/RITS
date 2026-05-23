@@ -6,7 +6,7 @@ import * as llmUsageService from "../services/llmUsageService.js";
 import * as logService from "../services/logService.js";
 import { formatAgentLogKindSuffix, splitAgentLogsByKind } from "./agentLogStats.js";
 
-const AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
+const AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"] as const;
 
 export type DailyReportActivity = {
   reportDate: string;
@@ -20,11 +20,15 @@ function countLogs(logsByAgent: Record<string, AgentLogRow[]>, agent: string): n
   return (logsByAgent[agent] ?? []).length;
 }
 
+function logsForAgent(logsByAgent: Record<string, AgentLogRow[]>, agent: string): AgentLogRow[] {
+  return logsByAgent[agent] ?? [];
+}
+
 function formatGroupObserveSection(activity: DailyReportActivity): string {
   const lines: string[] = ["【24h グループ傍受（ボット未応答の発言）】"];
   let totalObserve = 0;
   for (const agent of AGENTS) {
-    const split = splitAgentLogsByKind(activity.logsByAgent[agent] ?? []);
+    const split = splitAgentLogsByKind(logsForAgent(activity.logsByAgent, agent));
     totalObserve += split.groupObserve;
     if (split.groupObserve > 0) {
       lines.push(`・${agent}  ${split.groupObserve}件`);
@@ -41,7 +45,7 @@ function formatGroupObserveSection(activity: DailyReportActivity): string {
 function formatActivityTable(activity: DailyReportActivity): string {
   const lines: string[] = ["【24h 活動（事実）】"];
   for (const agent of AGENTS) {
-    const logs = activity.logsByAgent[agent] ?? [];
+    const logs = logsForAgent(activity.logsByAgent, agent);
     const split = splitAgentLogsByKind(logs);
     const llm = activity.llm?.by_agent.find((a) => a.agent_name === agent);
     const tok = llm?.total_tokens ?? 0;
@@ -116,7 +120,7 @@ export function formatDailyReportForLine(
   const deptBlocks: Array<{ title: string; body: string | null }> = [
     { title: "NEAR", body: row.near_summary },
     { title: "SERA", body: row.sera_summary },
-    { title: "LIRA", body: row.lira_summary },
+    { title: "IRIE", body: row.irie_summary },
   ];
 
   for (const { title, body } of deptBlocks) {

@@ -272,7 +272,7 @@ export async function createDailyReport(
     summary: string;
     near_summary: string;
     sera_summary: string;
-    lira_summary: string;
+    irie_summary: string;
     total_score: number;
     priority_issues: string;
     cursor_instruction: string;
@@ -286,7 +286,7 @@ export async function createDailyReport(
         summary: input.summary,
         near_summary: input.near_summary,
         sera_summary: input.sera_summary,
-        lira_summary: input.lira_summary,
+        irie_summary: input.irie_summary,
         total_score: input.total_score,
         priority_issues: input.priority_issues,
         cursor_instruction: input.cursor_instruction,

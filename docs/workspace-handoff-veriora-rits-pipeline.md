@@ -1,7 +1,7 @@
 # ワークスペース引き継ぎ — Veriora 会話・LLM を RITS 日次監査に載せる
 
 **作成日**: 2026-05-23  
-**対象読者**: NEAR / SERA / LIRA / LRAM / RITS を横断して実装する別ワークスペース  
+**対象読者**: NEAR / SERA / IRIE / LRAM / RITS を横断して実装する別ワークスペース  
 **正典（監査主体）**: RITS（本リポ）。顧客マスタ正本: `docs/customer-master-design.md`（`veriora.customers`）
 
 ---
@@ -124,7 +124,7 @@ Content-Type: application/json
 
 | フィールド | 必須 | 備考 |
 |------------|------|------|
-| `agent_name` | ○ | **`NEAR` / `SERA` / `LIRA` / `LRAM`**（registry の `code` と一致） |
+| `agent_name` | ○ | **`NEAR` / `SERA` / `IRIE` / `LRAM`**（registry の `code` と一致） |
 | `user_message` / `agent_reply` | 推奨 | 空だと監査品質が落ちる |
 | `source` | 任意 | 既定 `line`。`render-verify` 等のテストは本番で送らない |
 | `metadata` | 任意 | **冪等・追跡用**。後述の `rits_log_key` を推奨 |
@@ -204,9 +204,9 @@ RITS Supabase `agent_logs` に1行増えること。
 NEAR と同様。`agent_name: "SERA"`。  
 データ元: `sera_inbound_messages`（本番 Supabase で行が存在することを確認済み）。
 
-### 4.4 LIRA（経理部）
+### 4.4 IRIE（経理部）
 
-Python: `rits_ingest.py` 等。`agent_name: "LIRA"`。  
+Python: `rits_ingest.py` 等。`agent_name: "IRIE"`。  
 Sheets 正の業務と LINE 会話の両方がある場合は **LINE 応答パスのみ**でも可（段階導入）。
 
 ### 4.5 LRAM（編集部）
@@ -355,7 +355,7 @@ Supabase プロジェクトは **RITS の `SUPABASE_URL` と各部署が同一�
 |----|--------|------|------|
 | 1 | Supabase **005 + 017** 適用 | RITS / 共通 DB | 15分 |
 | 2 | RITS Web redeploy + `DAILY_OWNER_PUSH_ENABLED=false` 確認 | RITS | 15分 |
-| 3 | 各部署 Render に `VERIORA_RITS_*` | NEAR/SERA/LIRA/LRAM | 30分 |
+| 3 | 各部署 Render に `VERIORA_RITS_*` | NEAR/SERA/IRIE/LRAM | 30分 |
 | 4 | `ritsIngest` の呼び出し有無を grep → 無ければ LINE 返信後に追加 | 各部署 | 1〜2h/部署 |
 | 5 | 実 LINE 1往復 → `agent_logs` 増加確認 | 結合 | 30分 |
 | 6 | 翌朝 9:00 **1通**確認 | 運用 | — |

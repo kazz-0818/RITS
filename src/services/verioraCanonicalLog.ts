@@ -8,7 +8,7 @@ const AGENT_KEY_BY_NAME: Record<string, string> = {
   NEIA: "near",
   NIA: "near",
   SERA: "sera",
-  LIRA: "lira",
+  IRIE: "irie",
   RITS: "rits",
   LRAM: "lram",
 };

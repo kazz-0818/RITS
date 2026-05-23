@@ -15,7 +15,7 @@
 |------|------|-------------------|
 | **RITS** | AI人事 — 監査・評価・改善提案 | **実施者**。台帳: `agent_audits` / `daily_reports` |
 | **NEAR** | 秘書 — 総合窓口・**LLM / handoff の裏方** | 監査対象。レポートの「出し元」ではない |
-| SERA / LIRA / LRAM | 各業務部署 | 監査対象 |
+| SERA / IRIE / LRAM | 各業務部署 | 監査対象 |
 
 詳細: [README.md](../README.md)「組織内の役割」、[veriora-architecture.md](./veriora-architecture.md)「監査と正典の分離」。
 
@@ -45,9 +45,9 @@ npm run verify:veriora-sync  → exit 0
 |------|------|
 | Registry TS（NEAR/LRAM） | 同一ハッシュ `51bb692b…` |
 | Registry TS（SERA/RITS） | 同一ハッシュ `ee8ce6c59d76…` |
-| Registry Python（LIRA） | 別ハッシュ `d0c6c881…`（想定内） |
+| Registry Python（IRIE） | 別ハッシュ `d0c6c881…`（想定内） |
 | **Registry DRIFT** | TS 3 系統 — **warn のみ、CI はゲートにならない**（NEAR CI `continue-on-error: true`） |
-| Migration 053 | NEAR / SERA / LIRA / RITS: **OK** |
+| Migration 053 | NEAR / SERA / IRIE / RITS: **OK** |
 | Migration LRAM `002_veriora_core_schema.sql` | **2026-05-22 解消** — NEAR `053` と一致（再 verify 推奨） |
 
 ### 3.2 共有ドキュメント（NEAR `docs/` 基準・バイト一致）
@@ -132,7 +132,7 @@ npm run verify:veriora-sync  → exit 0
 - RITS の LINE は **オーナー向け人事コマンド**（監査サマリ・日次等）。他部署と同一ゲートを必須とはしない（**意図的差分**）。
 - 他部署間の不整合（room API、NEAR の `prefixLineReplyWithCaller` が import のみで未使用）は **Major** として是正候補。
 
-参照正典候補: [LIRA/docs/line-group-policy.md](../../LIRA/docs/line-group-policy.md)
+参照正典候補: [LIRA/docs/line-group-policy.md](../../IRIE/docs/line-group-policy.md)
 
 ---
 
@@ -159,7 +159,7 @@ npm run verify:veriora-sync  → exit 0
 ### Major
 
 3. **Phase / AGENTS 不整合**: `veriora.meta.md`（実装済み）vs `veriora-architecture.md`（未完了表記）、AGENTS「registry 非接続」vs NEAR 実装。
-4. **共有 doc DIFF**: SERA/LIRA/RITS/LRAM で architecture / env / schema / migration-plan が NEAR と不一致（RITS は監査節追加による意図 DIFF 含む）。
+4. **共有 doc DIFF**: SERA/IRIE/RITS/LRAM で architecture / env / schema / migration-plan が NEAR と不一致（RITS は監査節追加による意図 DIFF 含む）。
 5. **Registry TS**: NEAR≈LRAM と SERA≈RITS の **2 系統** — 意図確認と単一源化または verify の厳格化。
 6. **LINE**: ~~room Profile API 未対応~~ → **2026-05-22 対応済み**（NEAR/SERA/LRAM）。NEAR `prefixLineReplyWithCaller` **未使用**（`lineCallerSalutation` のみ）— Minor のまま。
 7. **verify-veriora-sync**: warn のみ・CI `continue-on-error` — ドリフトが本番ゲートにならない。

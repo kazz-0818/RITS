@@ -19,6 +19,6 @@ create index if not exists idx_llm_usage_events_agent_created
   on public.llm_usage_events (agent_name, created_at desc);
 
 comment on table public.llm_usage_events is
-  'NEAR/SERA/LIRA/LRAM 等が POST /admin/usage で送る OpenAI usage。日次レポートの LLM 稼働集計に使用。';
+  'NEAR/SERA/IRIE/LRAM 等が POST /admin/usage で送る OpenAI usage。日次レポートの LLM 稼働集計に使用。';
 
 alter table public.llm_usage_events enable row level security;
