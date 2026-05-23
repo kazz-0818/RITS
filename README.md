@@ -22,6 +22,8 @@ RITSは「人間の人事」ではなく、稼働中のAIエージェント（NE
 - **OpenAIは無状態の判断・文章生成エンジン**として利用し、OpenAI側の会話履歴やダッシュボードログに依存しません。
 - 監査・レポート生成では、**Supabaseから取得した最小限のログ/監査抜粋**だけをプロンプトに渡します。
 
+**別ワークスペース向け（会話・LLM を日次に載せる / 二重 push 解消）**: [`docs/workspace-handoff-veriora-rits-pipeline.md`](docs/workspace-handoff-veriora-rits-pipeline.md)
+
 ## 使用技術
 
 - Node.js 20+
@@ -204,7 +206,7 @@ curl -sS -X POST "$APP_BASE_URL/admin/reports/daily/push-owner" \
 |----------|------|
 | `LINE_OWNER_USER_ID` | push 先の LINE ユーザー ID |
 | `DAILY_OWNER_PUSH_TIME_JST` | 送信時刻（既定 `09:00`、Asia/Tokyo） |
-| `DAILY_OWNER_PUSH_ENABLED` | `false` で自動 push のみ停止 |
+| `DAILY_OWNER_PUSH_ENABLED` | Render 本番は **未設定＝オフ**（Cron に任せる）。`true` のときだけ Web 内スケジューラも 9:00 push（Cron と二重になりやすい） |
 
 Render 本番でも `LINE_OWNER_USER_ID` を Dashboard に設定してください。
 

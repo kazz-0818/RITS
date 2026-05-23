@@ -16,7 +16,10 @@ function isOwnerDailyPushEnabled(env: Env): boolean {
   const ownerId = env.LINE_OWNER_USER_ID.trim();
   if (!ownerId) return false;
   const flag = (process.env.DAILY_OWNER_PUSH_ENABLED ?? "").trim().toLowerCase();
+  if (flag === "true" || flag === "1" || flag === "yes") return true;
   if (flag === "false" || flag === "0" || flag === "no") return false;
+  // Render 本番は Cron（rits-daily-owner-push）に任せる。未設定で Web スケジューラを起動しない
+  if (process.env.RENDER) return false;
   return true;
 }
 
@@ -48,6 +51,26 @@ export function getJstHourMinute(now: Date = new Date()): { hour: number; minute
  * 日次レポートを生成（なければ作成）し、LINE_OWNER_USER_ID に push する
  */
 export async function pushDailyReportToOwner(params: {
+  env: Env;
+  supabase: SupabaseClient;
+  openai: OpenAI;
+  force?: boolean;
+}): Promise<OwnerDailyPushResult> {
+  if (ownerPushInFlight && !params.force) {
+    return ownerPushInFlight;
+  }
+
+  const run = pushDailyReportToOwnerInner(params);
+  if (!params.force) {
+    ownerPushInFlight = run;
+    void run.finally(() => {
+      if (ownerPushInFlight === run) ownerPushInFlight = null;
+    });
+  }
+  return run;
+}
+
+async function pushDailyReportToOwnerInner(params: {
   env: Env;
   supabase: SupabaseClient;
   openai: OpenAI;
@@ -125,6 +148,8 @@ export async function pushDailyReportToOwner(params: {
 }
 
 let schedulerLastFiredJstDate: string | null = null;
+/** 同一プロセス内の push-owner 同時実行を防ぐ（Cron + Web スケジューラのレース対策） */
+let ownerPushInFlight: Promise<OwnerDailyPushResult> | null = null;
 
 /** Asia/Tokyo の指定時刻（既定 09:00）に 1 日 1 回 push */
 export function startDailyOwnerPushScheduler(params: {
