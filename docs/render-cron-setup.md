@@ -76,6 +76,8 @@ curl -sS -X POST "https://rits-gj2m.onrender.com/admin/reports/daily/push-owner"
 | `VERIORA_RITS_ADMIN_API_KEY` | （RITS `ADMIN_API_KEY` と同値） |
 
 - 会話: LINE 返信時に `POST /admin/logs`（コード: 各リポ `ritsIngest` / LIRA `rits_ingest.py`）
+- グループ傍受: ボット未応答のグループ発言は `intent=group_observe` で転送（既定 ON）。日次 LINE に「グループ傍受」節と応答/傍受の内訳を載せる
+- RITS 自身の LINE: `agent_logs` に `agent_name=RITS` で記録（日次の RITS（人事LINE）行）
 - LLM: 既存 `recordLlmUsage` → `POST /admin/usage`（migration `017_llm_usage_events` 適用済みであること）
 
 ## 前提

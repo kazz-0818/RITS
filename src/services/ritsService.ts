@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type OpenAI from "openai";
 import type { AgentAuditRow } from "../types/audit.js";
+import type { LineMessageEvent } from "../types/line.js";
 import type { Env } from "../config/env.js";
 import { getJstDateString } from "../lib/date.js";
 import { chunkLineText, replyMessage } from "../lib/line.js";
@@ -18,12 +19,37 @@ export type RitsDeps = {
   openai: OpenAI;
 };
 
+const MAX_LOG_FIELD = 4000;
+
+function clipLogField(s: string): string {
+  const t = s.trim();
+  if (t.length <= MAX_LOG_FIELD) return t;
+  return `${t.slice(0, MAX_LOG_FIELD)}…`;
+}
+
+function lineLogMetadataFromSource(source?: LineMessageEvent["source"]): Record<string, unknown> {
+  if (!source) return {};
+  const meta: Record<string, unknown> = { line_source_type: source.type };
+  if (source.userId) meta.actor_user_id = source.userId;
+  const ext = source as { groupId?: string; roomId?: string };
+  if (ext.groupId) meta.group_id = ext.groupId;
+  if (ext.roomId) meta.room_id = ext.roomId;
+  return meta;
+}
+
+type RitsLineLogContext = {
+  userText: string;
+  intent?: string;
+  lineSource?: LineMessageEvent["source"];
+};
+
 /** LINE reply の結果を検査し、失敗時は system_errors に残す（Render ログだけでは気づきにくいため） */
 async function sendLineReply(
   deps: RitsDeps,
   replyToken: string,
   texts: string[],
   context: string,
+  logContext?: RitsLineLogContext,
 ): Promise<void> {
   const normalized = texts.filter((t) => t.trim().length > 0);
   const toSend = (normalized.length > 0 ? normalized : ["（応答が空でした）"]).slice(0, 5);
@@ -32,6 +58,18 @@ async function sendLineReply(
     replyToken,
     texts: toSend,
   });
+  if (logContext && res.ok) {
+    void logService
+      .createAgentLog(deps.supabase, {
+        agent_name: "RITS",
+        user_message: clipLogField(logContext.userText),
+        agent_reply: clipLogField(toSend.join("\n\n")),
+        intent: logContext.intent ?? context,
+        source: "line",
+        metadata: lineLogMetadataFromSource(logContext.lineSource),
+      })
+      .catch((e) => logger.warn("RITS self LINE log failed (non-fatal)", { err: String(e) }));
+  }
   if (!res.ok) {
     logger.warn("LINE reply API が失敗しました", { context, status: res.status });
     try {
@@ -157,8 +195,14 @@ export async function handleRitsLineText(params: {
   deps: RitsDeps;
   replyToken: string;
   text: string;
+  lineSource?: LineMessageEvent["source"];
 }): Promise<void> {
   const cmd = classifyLineCommand(params.text);
+  const lineLog = (intent?: string): RitsLineLogContext => ({
+    userText: params.text,
+    intent: intent ?? cmd.type,
+    lineSource: params.lineSource,
+  });
 
   try {
     if (cmd.type === "DAILY_REPORT") {
@@ -177,7 +221,7 @@ export async function handleRitsLineText(params: {
         ? await reportService.formatDailyReportForLine(row, { supabase: params.deps.supabase })
         : "日次レポートの生成に失敗しました。";
       const chunks = chunkLineText(body, 4500).slice(0, 5);
-      await sendLineReply(params.deps, params.replyToken, chunks, "DAILY_REPORT");
+      await sendLineReply(params.deps, params.replyToken, chunks, "DAILY_REPORT", lineLog("DAILY_REPORT"));
       return;
     }
 
@@ -186,14 +230,20 @@ export async function handleRitsLineText(params: {
       const audits = await logService.getAuditsByAgent(params.deps.supabase, { agent_name: agent, limit: 12 });
       const msg = formatAuditsForLine(agent, audits);
       const chunks = chunkLineText(msg, 4500).slice(0, 5);
-      await sendLineReply(params.deps, params.replyToken, chunks, "AGENT_ISSUES");
+      await sendLineReply(params.deps, params.replyToken, chunks, "AGENT_ISSUES", lineLog("AGENT_ISSUES"));
       return;
     }
 
     if (cmd.type === "UNSUPPORTED_REQUESTS") {
       const rows = await logService.getOpenUnsupportedRequests(params.deps.supabase, { limit: 30 });
       if (rows.length === 0) {
-        await sendLineReply(params.deps, params.replyToken, ["未対応リクエスト（open）はありません。"], "UNSUPPORTED_EMPTY");
+        await sendLineReply(
+          params.deps,
+          params.replyToken,
+          ["未対応リクエスト（open）はありません。"],
+          "UNSUPPORTED_EMPTY",
+          lineLog("UNSUPPORTED_EMPTY"),
+        );
         return;
       }
 
@@ -205,7 +255,7 @@ export async function handleRitsLineText(params: {
         lines.push("");
       }
       const chunks = chunkLineText(lines.join("\n"), 4500).slice(0, 5);
-      await sendLineReply(params.deps, params.replyToken, chunks, "UNSUPPORTED_LIST");
+      await sendLineReply(params.deps, params.replyToken, chunks, "UNSUPPORTED_LIST", lineLog("UNSUPPORTED_LIST"));
       return;
     }
 
@@ -258,7 +308,7 @@ export async function handleRitsLineText(params: {
         user,
       });
       const chunks = chunkLineText(text, 4500).slice(0, 5);
-      await sendLineReply(params.deps, params.replyToken, chunks, "CURSOR_INSTRUCTION");
+      await sendLineReply(params.deps, params.replyToken, chunks, "CURSOR_INSTRUCTION", lineLog("CURSOR_INSTRUCTION"));
       return;
     }
 
@@ -267,7 +317,8 @@ export async function handleRitsLineText(params: {
         params.deps,
         params.replyToken,
         [buildRitsCapabilitiesHelpReply()],
-        "HELP_CAPABILITIES"
+        "HELP_CAPABILITIES",
+        lineLog("HELP_CAPABILITIES"),
       );
       return;
     }
@@ -283,7 +334,7 @@ export async function handleRitsLineText(params: {
         user,
       });
       const chunks = chunkLineText(text, 4500).slice(0, 5);
-      await sendLineReply(params.deps, params.replyToken, chunks, "GENERAL_OR_UNKNOWN");
+      await sendLineReply(params.deps, params.replyToken, chunks, "GENERAL_OR_UNKNOWN", lineLog());
       return;
     }
   } catch (e) {
@@ -310,7 +361,7 @@ export async function handleRitsLineText(params: {
 
     const lines = userFacingRitsErrorLines(e, params.deps.env.APP_BASE_URL);
     try {
-      await sendLineReply(params.deps, params.replyToken, lines, "ERROR_FALLBACK");
+      await sendLineReply(params.deps, params.replyToken, lines, "ERROR_FALLBACK", lineLog("ERROR_FALLBACK"));
     } catch (replyErr) {
       logger.error("ERROR_FALLBACK の sendLineReply が例外", { err: String(replyErr) });
       throw e;

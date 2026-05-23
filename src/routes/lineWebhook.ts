@@ -110,6 +110,7 @@ async function processLineWebhookAfterAck(params: {
         deps,
         replyToken: ev.replyToken,
         text,
+        lineSource: ev.source,
       });
       anyTextInteraction = true;
     } catch (e) {

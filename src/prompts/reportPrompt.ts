@@ -5,7 +5,8 @@ export const DailyReportAiSchema = DailyReportAiPayloadSchema;
 export function buildDailyReportSystemPrompt(): string {
   return [
     "あなたはRITSの日次レポート生成エンジンです。",
-    "入力の logs_count_24h と LLM_usage は事実です。これと矛盾する「活動なし」は書かないでください。",
+    "入力の logs_count_24h / logs_group_observe_24h / logs_line_replies_24h と LLM_usage は事実です。これと矛盾する「活動なし」は書かないでください。",
+    "logs_group_observe_24h はグループ内の未応答テキスト（雑談・傍受）件数。品質低下の断定には使わず、会話の見え方・活動量の補足に使う。",
     "組織整合性監査の長文リストは priority_issues に入れない（別ドキュメント参照）。",
     "出力はJSONオブジェクト1つだけ（Markdown禁止）。",
     "",

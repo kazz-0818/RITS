@@ -14,6 +14,8 @@ import * as llmUsageService from "./llmUsageService.js";
 import { loadEnv } from "../config/env.js";
 import { tryGetPool } from "../db/client.js";
 import { buildCustomerMasterAuditSection } from "./customerAuditQueries.js";
+import { splitAgentLogsByKind } from "../lib/agentLogStats.js";
+
 const TARGET_AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
 
 function riskRank(r: string | null): number {
@@ -52,16 +54,27 @@ function buildDeterministicBundle(params: {
   lines.push(`targets: ${TARGET_AGENTS.join(", ")}`);
   lines.push("");
   lines.push("IMPORTANT: logs_count_24h and LLM_usage are authoritative facts. Do not claim zero activity if counts > 0.");
+  lines.push(
+    "group_observe rows are passive group chat (no bot reply). Mention them in summary when count > 0; do not treat as quality failures.",
+  );
   lines.push("");
 
   for (const agent of TARGET_AGENTS) {
     const logs = params.logsByAgent[agent] ?? [];
+    const split = splitAgentLogsByKind(logs);
     lines.push(`## ${agent}`);
-    lines.push(`logs_count_24h: ${logs.length}`);
+    lines.push(`logs_count_24h: ${split.total}`);
+    lines.push(`logs_line_replies_24h: ${split.lineReplies}`);
+    lines.push(`logs_group_observe_24h: ${split.groupObserve}`);
     if (logs.length > 0) {
-      const last = logs[0];
+      const last =
+        logs.find((l) => l.intent !== "group_observe" && (l.agent_reply?.trim() ?? "").length > 0) ?? logs[0];
       lines.push(`latest_user_snippet: ${(last.user_message ?? "").slice(0, 120)}`);
       lines.push(`latest_reply_snippet: ${(last.agent_reply ?? "").slice(0, 120)}`);
+      const lastObserve = logs.find((l) => l.intent === "group_observe");
+      if (lastObserve) {
+        lines.push(`latest_group_observe_snippet: ${(lastObserve.user_message ?? "").slice(0, 120)}`);
+      }
     }
     lines.push("audit_highlights:");
     lines.push(summarizeAudits(params.audits, agent, 4) || "(none)");
@@ -104,7 +117,7 @@ export async function generateAndStoreDailyReport(params: {
   const logsByAgent = await logService.getAgentLogsSinceForAgents(params.supabase, {
     sinceIso,
     agentNames: [...TARGET_AGENTS],
-    limitPerAgent: 60,
+    limitPerAgent: 120,
   });
 
   const audits = (await logService.getAuditsSince(params.supabase, { sinceIso, limit: 800 })).filter((a) =>

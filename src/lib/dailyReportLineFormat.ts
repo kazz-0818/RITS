@@ -4,6 +4,7 @@ import type { AgentAuditRow, DailyReportRow } from "../types/audit.js";
 import type { LlmUsageDailySummary } from "../types/llmUsage.js";
 import * as llmUsageService from "../services/llmUsageService.js";
 import * as logService from "../services/logService.js";
+import { formatAgentLogKindSuffix, splitAgentLogsByKind } from "./agentLogStats.js";
 
 const AGENTS = ["NEAR", "SERA", "LIRA", "LRAM"] as const;
 
@@ -19,19 +20,43 @@ function countLogs(logsByAgent: Record<string, AgentLogRow[]>, agent: string): n
   return (logsByAgent[agent] ?? []).length;
 }
 
+function formatGroupObserveSection(activity: DailyReportActivity): string {
+  const lines: string[] = ["【24h グループ傍受（ボット未応答の発言）】"];
+  let totalObserve = 0;
+  for (const agent of AGENTS) {
+    const split = splitAgentLogsByKind(activity.logsByAgent[agent] ?? []);
+    totalObserve += split.groupObserve;
+    if (split.groupObserve > 0) {
+      lines.push(`・${agent}  ${split.groupObserve}件`);
+    }
+  }
+  if (totalObserve === 0) {
+    lines.push("・記録なし（各部署の VERIORA_RITS_* とグループ LINE が必要）");
+  } else {
+    lines.push(`・合計 ${totalObserve}件（監査LLM対象外・コンテキスト把握用）`);
+  }
+  return lines.join("\n");
+}
+
 function formatActivityTable(activity: DailyReportActivity): string {
   const lines: string[] = ["【24h 活動（事実）】"];
   for (const agent of AGENTS) {
-    const n = countLogs(activity.logsByAgent, agent);
+    const logs = activity.logsByAgent[agent] ?? [];
+    const split = splitAgentLogsByKind(logs);
     const llm = activity.llm?.by_agent.find((a) => a.agent_name === agent);
     const tok = llm?.total_tokens ?? 0;
     const req = llm?.request_count ?? 0;
     lines.push(
-      `・${agent}  会話ログ ${n}件  LLM ${req}回 ${tok > 0 ? `${tok.toLocaleString("ja-JP")} tok` : "—"}`
+      `・${agent}  会話ログ ${formatAgentLogKindSuffix(split)}  LLM ${req}回 ${tok > 0 ? `${tok.toLocaleString("ja-JP")} tok` : "—"}`
     );
   }
   const auditN = activity.audits.length;
   lines.push(`・監査イベント ${auditN}件`);
+  const ritsLogs = activity.logsByAgent["RITS"] ?? [];
+  if (ritsLogs.length > 0) {
+    const ritsSplit = splitAgentLogsByKind(ritsLogs);
+    lines.push(`・RITS（人事LINE） ${formatAgentLogKindSuffix(ritsSplit)}`);
+  }
   return lines.join("\n");
 }
 
@@ -78,6 +103,8 @@ export function formatDailyReportForLine(
   parts.push("━━━━━━━━━━━━━━━━");
   parts.push("");
   parts.push(formatActivityTable(activity));
+  parts.push("");
+  parts.push(formatGroupObserveSection(activity));
   parts.push("");
   parts.push(`総合スコア: ${row.total_score ?? "—"} / 100`);
   parts.push("");
@@ -139,8 +166,8 @@ export async function loadDailyReportActivity(
 ): Promise<DailyReportActivity> {
   const logsByAgent = await logService.getAgentLogsSinceForAgents(supabase, {
     sinceIso: params.sinceIso,
-    agentNames: [...AGENTS],
-    limitPerAgent: 80,
+    agentNames: [...AGENTS, "RITS"],
+    limitPerAgent: 120,
   });
   const audits = (
     await logService.getAuditsSince(supabase, { sinceIso: params.sinceIso, limit: 200 })
