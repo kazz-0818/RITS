@@ -48,7 +48,7 @@ export async function loadCustomerAuditBundle(
 
 /** 日次レポート用（読取のみ・merge/削除は行わない） */
 export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
-  const lines: string[] = ["## Veriora_customer_master_audit"];
+  const lines: string[] = ["## Veliora_customer_master_audit"];
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   lines.push(`window_start_utc: ${since24h}`);
 

@@ -140,7 +140,7 @@ export async function generateAndStoreDailyReport(params: {
       try {
         customerSection = await buildCustomerMasterAuditSection(pool);
       } catch {
-        customerSection = "## Veriora_customer_master\n(unavailable)";
+        customerSection = "## Veliora_customer_master\n(unavailable)";
       }
     }
   }

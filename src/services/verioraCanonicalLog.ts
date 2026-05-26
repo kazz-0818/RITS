@@ -27,7 +27,7 @@ function buildConversationKey(agentKey: string, lineUserId?: string | null): str
 /**
  * RITS agent_logs 作成後、DATABASE_URL + VERIORA_CANONICAL_LINE_LOG 時に veriora.messages へ best-effort 複写。
  */
-export async function mirrorAgentLogToVerioraMessages(input: {
+export async function mirrorAgentLogToVelioraMessages(input: {
   agent_name: string;
   user_message?: string | null;
   agent_reply?: string | null;

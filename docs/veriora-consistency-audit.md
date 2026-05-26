@@ -1,4 +1,4 @@
-# Veriora 組織整合性監査レポート（RITS）
+# Veliora 組織整合性監査レポート（RITS）
 
 **監査主体**: RITS（AI人事部）  
 **実施日**: 2026-05-22（JST）  
@@ -102,14 +102,14 @@ npm run verify:veriora-sync  → exit 0
 |-------|---------------------|----------|
 | 3 env alias | 全リポ `envAlias` / `config_env_alias.py` | meta と一致、architecture は詳細不足 |
 | 4 legacy LINE log OFF | 運用 env（`VERIORA_LEGACY_*`） | 運用確認要 |
-| 5 handoff | NEAR `verioraHandoff.ts` + registry `getVerioraAgentByKey` | **AGENTS.md と矛盾**（下記） |
+| 5 handoff | NEAR `verioraHandoff.ts` + registry `getVelioraAgentByKey` | **AGENTS.md と矛盾**（下記） |
 | 6 RITS 監査・日次 | RITS `auditService` / `reportService` / `POST /admin/reports/daily` | architecture Phase 6 は「将来」表記のまま |
 | 7 NEAR→LRAM | NEAR `verioraHandoffNotify.ts`、LRAM internal handoff | env 設定で有効化 |
 | 8 admin LINE | NEAR/SERA/LRAM admin routes | 各リポ個別 |
 
 ### 4.2 AGENTS.md「registry 非接続」
 
-全リポ `AGENTS.md` に「registry は実行経路から参照しない」とあるが、**NEAR** は `src/agents/rits/config.ts` 等で `getVerioraAgentByKey` を使用。**ドキュメント不整合（Major）**。
+全リポ `AGENTS.md` に「registry は実行経路から参照しない」とあるが、**NEAR** は `src/agents/rits/config.ts` 等で `getVelioraAgentByKey` を使用。**ドキュメント不整合（Major）**。
 
 ### 4.3 正典 doc の置き場 vs 監査主体
 
@@ -217,4 +217,4 @@ curl -sS https://rits-gj2m.onrender.com/health/supabase-tables
 
 ---
 
-*本レポートは RITS 主導の Veriora 整合性監査（第1段階）の成果物です。コード自動化・日次 API 接続は第2段階で検討。*
+*本レポートは RITS 主導の Veliora 整合性監査（第1段階）の成果物です。コード自動化・日次 API 接続は第2段階で検討。*

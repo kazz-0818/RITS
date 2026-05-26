@@ -34,7 +34,7 @@ export const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: EnvString,
   ADMIN_API_KEY: EnvString,
   APP_BASE_URL: z.preprocess((v) => resolveAppBaseUrl(v), z.string().url({ message: "APP_BASE_URL または RENDER_EXTERNAL_URL が有効な https URL である必要があります" })),
-  /** Veriora canonical デュアル書き込み用（任意） */
+  /** Veliora canonical デュアル書き込み用（任意） */
   DATABASE_URL: z.preprocess((v) => {
     const s = stripEnvValue(v);
     if (s.length === 0 || isEnvPlaceholder(s)) return undefined;

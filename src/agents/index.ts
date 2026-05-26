@@ -1,7 +1,7 @@
 export type { AgentDefinition } from "./types.js";
 export {
-  VERIORA_AGENT_DEFINITIONS,
-  getVerioraAgentById,
-  getVerioraAgentByKey,
-  getVerioraAgentByCode,
+  VELIORA_AGENT_DEFINITIONS,
+  getVelioraAgentById,
+  getVelioraAgentByKey,
+  getVelioraAgentByCode,
 } from "./registry.js";

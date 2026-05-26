@@ -1,9 +1,9 @@
-import type { VerioraDb } from "../client.js";
+import type { VelioraDb } from "../client.js";
 import { VERIORA_TABLES } from "../schema.js";
 import type { CreateMemoryNoteInput, CustomerMemoryNoteRow } from "../../customers/types.js";
 
 export async function createCustomerMemoryNote(
-  db: VerioraDb,
+  db: VelioraDb,
   input: CreateMemoryNoteInput
 ): Promise<{ id: string }> {
   const r = await db.query<{ id: string }>(
@@ -31,7 +31,7 @@ export async function createCustomerMemoryNote(
 }
 
 export async function listCustomerMemoryNotes(
-  db: VerioraDb,
+  db: VelioraDb,
   customerId: string,
   opts?: { limit?: number; confirmedOnly?: boolean }
 ): Promise<CustomerMemoryNoteRow[]> {
