@@ -35,7 +35,7 @@ service_id() {
   case "$1" in
     NEAR) echo "srv-d827s21j2pic73b3457g" ;;
     SERA) echo "srv-d827p4mgvqtc73denm60" ;;
-    LIRA) echo "srv-d829fi3eo5us7386o5cg" ;;
+    IRIE|LIRA) echo "srv-d829fi3eo5us7386o5cg" ;;
     LRAM) echo "srv-d879fflckfvc73a1fm90" ;;
     *) return 1 ;;
   esac
@@ -45,7 +45,13 @@ env_file_for() {
   case "$1" in
     NEAR) echo "${NEAR_ENV_FILE:-$ROOT/../NEAR/.env}" ;;
     SERA) echo "${SERA_ENV_FILE:-$ROOT/../SERA/.env}" ;;
-    LIRA) echo "${LIRA_ENV_FILE:-$ROOT/../LIRA/.env}" ;;
+    IRIE|LIRA)
+      if [[ -f "${IRIE_ENV_FILE:-$ROOT/../IRIE/.env}" ]]; then
+        echo "${IRIE_ENV_FILE:-$ROOT/../IRIE/.env}"
+      else
+        echo "${LIRA_ENV_FILE:-$ROOT/../LIRA/.env}"
+      fi
+      ;;
     LRAM) echo "${LRAM_ENV_FILE:-$ROOT/../LRAM/.env}" ;;
     *) return 1 ;;
   esac
@@ -105,7 +111,7 @@ PY
   echo "[$name] PUT env-vars HTTP $code (${count} keys from $(basename "$env_file"))"
 }
 
-TARGETS="${VERIORA_RENDER_ENV_TARGETS:-NEAR SERA LIRA LRAM}"
+TARGETS="${VERIORA_RENDER_ENV_TARGETS:-NEAR SERA IRIE LRAM}"
 for name in $TARGETS; do
   put_env_from_file "$name" "$(service_id "$name")" "$(env_file_for "$name")"
 done

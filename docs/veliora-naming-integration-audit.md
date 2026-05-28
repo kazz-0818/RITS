@@ -11,12 +11,12 @@ AGENTS.md の方針: コード・DB に残る `veriora` / `VERIORA_*` はレガ�
 | **NEAR** | `veliora`（073 対応済） | `VELIORA_*` env | `VELIORA_RITS_*` + alias | `VELIORA_TABLES` | 基準 |
 | **SERA** | `veliora` に統一（本修正） | `veliora.line_*` 済 / repositories 要 `veliora` | `VERIORA_RITS_*` + alias | 直書き `veriora.*` を修正 | 本 PR |
 | **LRAM** | 同上 | 一部 `veriora.lram_*` | `VERIORA_RITS_*` | merge/lineResolve 修正 | 本 PR |
-| **LIRA** | `schema.py` → `veliora` | — | `VERIORA_RITS_*` | 限定的 | 本 PR |
+| **IRIE**（旧 LIRA リポ） | `schema.py` → `veliora` | — | `VERIORA_RITS_*` | 限定的 | 本 PR |
 | **RITS** | 同上 | `verioraCanonicalLog` → `veliora.messages` | — | merge/audit 修正 | 本 PR |
 
 ## 環境変数（RITS 連携）
 
-| キー | NEAR | SERA/LIRA/LRAM |
+| キー | NEAR | SERA/IRIE/LRAM |
 |------|------|----------------|
 | 正（NEAR） | `VELIORA_RITS_BASE_URL` / `VELIORA_RITS_ADMIN_API_KEY` | — |
 | 正（他部署） | — | `VERIORA_RITS_*`（`envAlias` で設定可） |
