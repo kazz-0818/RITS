@@ -54,10 +54,10 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
 
   try {
     const active = await db.query<{ n: string }>(
-      `SELECT COUNT(*)::text AS n FROM veriora.customers WHERE status = 'active'`,
+      `SELECT COUNT(*)::text AS n FROM veliora.customers WHERE status = 'active'`,
     );
     const new24h = await db.query<{ n: string }>(
-      `SELECT COUNT(*)::text AS n FROM veriora.customers
+      `SELECT COUNT(*)::text AS n FROM veliora.customers
        WHERE status = 'active' AND created_at >= $1::timestamptz`,
       [since24h],
     );
@@ -82,7 +82,7 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
     }
 
     const mem = await db.query<{ confirmed: boolean; n: string }>(
-      `SELECT confirmed, COUNT(*)::text AS n FROM veriora.customer_memory_notes GROUP BY confirmed`,
+      `SELECT confirmed, COUNT(*)::text AS n FROM veliora.customer_memory_notes GROUP BY confirmed`,
     );
     for (const row of mem.rows) {
       lines.push(`memory_${row.confirmed ? "confirmed" : "unconfirmed"}: ${row.n}`);
@@ -90,8 +90,8 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
 
     const agentMsgs = await db.query<{ agent_key: string; n: string }>(
       `SELECT a.agent_key, COUNT(*)::text AS n
-       FROM veriora.messages m
-       JOIN veriora.ai_agents a ON a.id = m.agent_id
+       FROM veliora.messages m
+       JOIN veliora.ai_agents a ON a.id = m.agent_id
        WHERE m.created_at >= $1::timestamptz
        GROUP BY a.agent_key ORDER BY COUNT(*) DESC`,
       [since24h],
@@ -103,9 +103,9 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
 
     const multi = await db.query<{ customer_id: string; n: string }>(
       `SELECT l.customer_id, COUNT(DISTINCT COALESCE(l.agent_key, a.agent_key))::text AS n
-       FROM veriora.customer_conversation_links l
-       JOIN veriora.conversations c ON c.id = l.conversation_id
-       JOIN veriora.ai_agents a ON a.id = c.agent_id
+       FROM veliora.customer_conversation_links l
+       JOIN veliora.conversations c ON c.id = l.conversation_id
+       JOIN veliora.ai_agents a ON a.id = c.agent_id
        WHERE c.last_message_at >= $1::timestamptz
        GROUP BY l.customer_id HAVING COUNT(DISTINCT COALESCE(l.agent_key, a.agent_key)) > 1
        ORDER BY COUNT(DISTINCT COALESCE(l.agent_key, a.agent_key)) DESC LIMIT 10`,
@@ -117,7 +117,7 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
     }
 
     const needsReview = await db.query<{ id: string; note: string; category: string | null }>(
-      `SELECT id, note, category FROM veriora.customer_memory_notes
+      `SELECT id, note, category FROM veliora.customer_memory_notes
        WHERE confirmed = false ORDER BY created_at DESC LIMIT 10`,
     );
     lines.push("needs_review_notes:");
@@ -126,7 +126,7 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
     }
 
     const allNotes = await db.query<{ id: string; note: string }>(
-      `SELECT id, note FROM veriora.customer_memory_notes ORDER BY created_at DESC LIMIT 60`,
+      `SELECT id, note FROM veliora.customer_memory_notes ORDER BY created_at DESC LIMIT 60`,
     );
     const sensitive = allNotes.rows.filter((r) => SENSITIVE_PATTERN.test(r.note)).slice(0, 5);
     lines.push(`sensitive_note_candidates: ${sensitive.length}`);
@@ -136,8 +136,8 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
 
     const nameMismatch = await db.query<{ customer_id: string; preferred_name: string | null }>(
       `SELECT c.id AS customer_id, c.preferred_name
-       FROM veriora.customers c
-       JOIN veriora.customer_identities ci ON ci.customer_id = c.id
+       FROM veliora.customers c
+       JOIN veliora.customer_identities ci ON ci.customer_id = c.id
        WHERE c.status = 'active' AND c.preferred_name IS NOT NULL AND btrim(c.preferred_name) <> ''
        GROUP BY c.id, c.preferred_name
        HAVING NOT bool_or(btrim(ci.external_display_name) ILIKE '%' || btrim(c.preferred_name) || '%')
@@ -149,12 +149,12 @@ export async function buildCustomerMasterAuditSection(db: Db): Promise<string> {
     }
 
     const cross = await db.query<{ customer_id: string }>(
-      `SELECT n.customer_id FROM veriora.customer_memory_notes n
+      `SELECT n.customer_id FROM veliora.customer_memory_notes n
        WHERE n.confirmed = true AND n.source_agent_key = 'sera'
        GROUP BY n.customer_id
        HAVING COUNT(*) > 0
        AND NOT EXISTS (
-         SELECT 1 FROM veriora.customer_agent_contexts ac
+         SELECT 1 FROM veliora.customer_agent_contexts ac
          WHERE ac.customer_id = n.customer_id AND ac.agent_key = 'near'
            AND ac.context_summary IS NOT NULL AND length(btrim(ac.context_summary)) > 20
        )

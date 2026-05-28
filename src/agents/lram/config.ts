@@ -17,7 +17,7 @@ export const IMPLEMENTATION_PATHS = {
 } as const;
 
 export const VERIORA_TABLES_USED = [
-  "veriora.ai_agents",
-  "veriora.conversations",
-  "veriora.messages",
+  "veliora.ai_agents",
+  "veliora.conversations",
+  "veliora.messages",
 ] as const;

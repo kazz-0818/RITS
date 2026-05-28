@@ -65,8 +65,8 @@ async function maybeSuggestMergeByDisplayName(
 ): Promise<void> {
   const r = await db.query<{ other_id: string }>(
     `SELECT DISTINCT ci2.customer_id AS other_id
-     FROM veriora.customer_identities ci1
-     JOIN veriora.customer_identities ci2
+     FROM veliora.customer_identities ci1
+     JOIN veliora.customer_identities ci2
        ON ci1.external_display_name IS NOT NULL
       AND btrim(ci1.external_display_name) = btrim(ci2.external_display_name)
       AND btrim(ci1.external_display_name) = btrim($2::text)

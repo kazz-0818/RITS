@@ -25,7 +25,7 @@ function buildConversationKey(agentKey: string, lineUserId?: string | null): str
 }
 
 /**
- * RITS agent_logs 作成後、DATABASE_URL + VERIORA_CANONICAL_LINE_LOG 時に veriora.messages へ best-effort 複写。
+ * RITS agent_logs 作成後、DATABASE_URL + VERIORA_CANONICAL_LINE_LOG 時に veliora.messages へ best-effort 複写。
  */
 export async function mirrorAgentLogToVelioraMessages(input: {
   agent_name: string;
@@ -89,6 +89,6 @@ export async function mirrorAgentLogToVelioraMessages(input: {
       }).catch(() => undefined);
     }
   } catch (e) {
-    console.warn("[rits] veriora.messages mirror failed (non-fatal)", e);
+    console.warn("[rits] veliora.messages mirror failed (non-fatal)", e);
   }
 }
