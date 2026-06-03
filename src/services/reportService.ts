@@ -200,6 +200,7 @@ export async function formatDailyReportForLine(
       logsByAgent: {},
       audits: [],
       llm: null,
+      auxiliaryOps: { lram_requests_24h: 0 },
     });
   }
 

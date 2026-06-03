@@ -177,7 +177,10 @@ export async function getAgentLogsSinceForAgents(
       .order("created_at", { ascending: false })
       .limit(limitPerAgent);
     if (error) throw new Error(`getAgentLogsSinceForAgents failed: ${error.message}`);
-    out[name] = (data ?? []).map(mapAgentLog).filter((r): r is AgentLogRow => r !== null);
+    out[name] = (data ?? [])
+      .map(mapAgentLog)
+      .filter((r): r is AgentLogRow => r !== null)
+      .filter((r) => r.source !== "daily_owner_line_push");
   }
   return out;
 }

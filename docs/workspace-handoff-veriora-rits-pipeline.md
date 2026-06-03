@@ -372,7 +372,16 @@ Supabase プロジェクトは **RITS の `SUPABASE_URL` と各部署が同一�
 
 ---
 
-## 14. このリポで未コミットの修正
+## 14. 実施済み（2026-05-31 追記）
+
+- Supabase: **005** `owner_line_pushed_at`、**017** `llm_usage_events`、**irie_summary** 列 — 適用済み
+- RITS: 日次から `daily_owner_line_push` を活動集計から除外、`lram_requests` 参考行を追加
+- NEAR / SERA / LRAM: `ritsIngestFetch`（429/502 リトライ + `/health` 起こし）
+- LRAM: `cron.dailyIdeas` 完了時に `recordLineExchangeToRits`
+- LIRA: `rits_ingest.py` リトライ
+- Render RITS Web: **Starter へ変更**（Dashboard で `free` のままなら手動で Starter に変更）
+
+## 15. このリポで未コミットの修正
 
 別ワークスペースが pull する前に、RITS `main` に以下が入っているか確認:
 

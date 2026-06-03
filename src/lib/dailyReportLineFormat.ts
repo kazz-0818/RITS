@@ -5,6 +5,7 @@ import type { LlmUsageDailySummary } from "../types/llmUsage.js";
 import * as llmUsageService from "../services/llmUsageService.js";
 import * as logService from "../services/logService.js";
 import { formatAgentLogKindSuffix, splitAgentLogsByKind } from "./agentLogStats.js";
+import { formatAuxiliaryOpsSection, loadAuxiliaryOpsCounts, type AuxiliaryOpsCounts } from "./auxiliaryOpsCounts.js";
 
 const AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"] as const;
 
@@ -14,6 +15,7 @@ export type DailyReportActivity = {
   logsByAgent: Record<string, AgentLogRow[]>;
   audits: AgentAuditRow[];
   llm: LlmUsageDailySummary | null;
+  auxiliaryOps: AuxiliaryOpsCounts;
 };
 
 function countLogs(logsByAgent: Record<string, AgentLogRow[]>, agent: string): number {
@@ -108,6 +110,8 @@ export function formatDailyReportForLine(
   parts.push("");
   parts.push(formatActivityTable(activity));
   parts.push("");
+  parts.push(formatAuxiliaryOpsSection(activity.auxiliaryOps));
+  parts.push("");
   parts.push(formatGroupObserveSection(activity));
   parts.push("");
   parts.push(`総合スコア: ${row.total_score ?? "—"} / 100`);
@@ -184,11 +188,14 @@ export async function loadDailyReportActivity(
     llm = null;
   }
 
+  const auxiliaryOps = await loadAuxiliaryOpsCounts(supabase, params.sinceIso);
+
   return {
     reportDate: params.reportDate,
     sinceIso: params.sinceIso,
     logsByAgent,
     audits,
     llm,
+    auxiliaryOps,
   };
 }
