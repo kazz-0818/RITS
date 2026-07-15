@@ -88,8 +88,8 @@ function splitPriorityIssues(raw: string): { numbered: string[]; rest: string } 
   const numbered: string[] = [];
   const rest: string[] = [];
   for (const line of lines) {
-    if (/^(\d+[\.\)、]|・)\s*/.test(line) || /^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line)) {
-      numbered.push(line.replace(/^(\d+[\.\)、]|・)\s*/, "").slice(0, 120));
+    if (/^(\d+[.)、]|・)\s*/.test(line) || /^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line)) {
+      numbered.push(line.replace(/^(\d+[.)、]|・)\s*/, "").slice(0, 120));
     } else {
       rest.push(line);
     }
@@ -133,10 +133,15 @@ export function formatDailyReportForLine(
     parts.push("");
   }
 
+  const lramSummary = (row.lram_summary ?? "").trim();
   const lramLogs = countLogs(activity.logsByAgent, "LRAM");
-  if (lramLogs > 0 || activity.llm?.by_agent.some((a) => a.agent_name === "LRAM")) {
+  if (lramSummary) {
     parts.push("■ LRAM");
-    parts.push(`会話ログ ${lramLogs}件（詳細サマリは次回スキーマ拡張予定）`);
+    parts.push(truncateBlock(lramSummary, 280));
+    parts.push("");
+  } else if (lramLogs > 0 || activity.llm?.by_agent.some((a) => a.agent_name === "LRAM")) {
+    parts.push("■ LRAM");
+    parts.push(`会話ログ ${lramLogs}件（migration 025 適用で総評が表示されます）`);
     parts.push("");
   }
 

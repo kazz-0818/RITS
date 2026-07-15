@@ -13,6 +13,7 @@
     "start": "node dist/index.js",
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "seed:test-logs": "tsx src/scripts/seedTestLogs.ts",
     "cron:daily-owner-push": "tsx src/scripts/cronDailyOwnerPush.ts",
     "render:push-daily-owner": "bash scripts/render-push-daily-owner.sh"
