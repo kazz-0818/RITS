@@ -53,8 +53,9 @@ export function createAdminApp(env: Env) {
     if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
 
     const body = CreateAgentLogInputSchema.parse(await c.req.json());
-    const created = await logService.createAgentLog(supabase, body);
-    return c.json({ ok: true, id: created.id });
+    // Webhook 再送や送信側リトライによる二重記録を防ぐ（冪等）
+    const created = await logService.createAgentLogDeduped(supabase, body);
+    return c.json({ ok: true, id: created.id, duplicate: created.duplicate });
   });
 
   const AuditRunSchema = z.object({
@@ -75,6 +76,18 @@ export function createAdminApp(env: Env) {
       limit: body.limit,
     });
     return c.json({ ok: true, ...res });
+  });
+
+  /** 保存済み日次レポートの取得（生成しない・LLM を使わない）。CORE などの取次ぎ用 */
+  app.get("/admin/reports/daily", async (c) => {
+    const supabase = tryCreateSupabaseAdmin(env);
+    if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+
+    const date = c.req.query("date")?.trim() || getJstDateString(new Date());
+    const row = await logService.getDailyReportByDate(supabase, date);
+    if (!row) return c.json({ ok: false, error: "not_found", report_date: date }, 404);
+    const line_preview = await reportService.formatDailyReportForLine(row, { supabase });
+    return c.json({ ok: true, report: row, line_preview });
   });
 
   app.post("/admin/reports/daily", async (c) => {

@@ -56,21 +56,72 @@ export async function runAuditForAgent(params: {
   agent_name: string;
   limit: number;
 }): Promise<{ audited: number; audit_ids: string[] }> {
+  const logs = await logService.getAgentLogsByName(params.supabase, {
+    agent_name: params.agent_name,
+    limit: Math.min(Math.max(params.limit, 1), 50),
+  });
+  return auditLogsForAgent({ ...params, logs });
+}
+
+/**
+ * 日次バッチ用: 直近24hのログのうち「まだ監査されていないもの」だけを LLM 監査する。
+ * 日次レポート生成前に呼ぶことで audit_highlights が空にならない。
+ */
+export async function runUnauditedAuditsForAgents(params: {
+  supabase: SupabaseClient;
+  openai: OpenAI;
+  model: string;
+  agentNames: string[];
+  sinceIso: string;
+  maxPerAgent: number;
+}): Promise<Record<string, number>> {
+  // 既監査の対象ログ id（余裕を見て多めに取得）
+  const audits = await logService.getAuditsSince(params.supabase, {
+    sinceIso: params.sinceIso,
+    limit: 1000,
+  });
+  const auditedLogIds = new Set(audits.map((a) => a.target_log_id).filter((id): id is string => Boolean(id)));
+
+  const logsByAgent = await logService.getAgentLogsSinceForAgents(params.supabase, {
+    sinceIso: params.sinceIso,
+    agentNames: params.agentNames,
+    limitPerAgent: 120,
+  });
+
+  const audited: Record<string, number> = {};
+  for (const agent of params.agentNames) {
+    const candidates = (logsByAgent[agent] ?? [])
+      .filter((log) => !auditedLogIds.has(log.id))
+      .slice(0, Math.min(Math.max(params.maxPerAgent, 1), 50));
+    const res = await auditLogsForAgent({
+      supabase: params.supabase,
+      openai: params.openai,
+      model: params.model,
+      agent_name: agent,
+      logs: candidates,
+    });
+    audited[agent] = res.audited;
+  }
+  return audited;
+}
+
+async function auditLogsForAgent(params: {
+  supabase: SupabaseClient;
+  openai: OpenAI;
+  model: string;
+  agent_name: string;
+  logs: Awaited<ReturnType<typeof logService.getAgentLogsByName>>;
+}): Promise<{ audited: number; audit_ids: string[] }> {
   const profile = await logService.getAgentProfileByName(params.supabase, params.agent_name);
   const profileBlock =
     profile != null
       ? buildProfileBlock(profile)
       : `- agent_name: ${params.agent_name}\n- role: (profile not found in DB)`;
 
-  const logs = await logService.getAgentLogsByName(params.supabase, {
-    agent_name: params.agent_name,
-    limit: Math.min(Math.max(params.limit, 1), 50),
-  });
-
   const auditIds: string[] = [];
 
   // グループ傍受（返信なし）は件数・日次には載るが LLM 監査対象外
-  const ordered = [...logs]
+  const ordered = [...params.logs]
     .filter((log) => log.intent !== "group_observe" && (log.agent_reply?.trim() ?? "").length > 0)
     .reverse();
 

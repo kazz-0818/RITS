@@ -59,6 +59,50 @@ export async function createAgentLog(
   return { id: data.id as string };
 }
 
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * 外部 ingest（POST /admin/logs）用の冪等化付き作成。
+ * - metadata.rits_log_key があれば同一キーの既存行を重複扱い
+ * - なければ直近10分の同一内容（agent_name + user_message + agent_reply + source）を重複扱い
+ * 重複判定クエリの失敗は non-fatal（通常 insert にフォールバック）。
+ */
+export async function createAgentLogDeduped(
+  supabase: SupabaseClient,
+  input: CreateAgentLogInput,
+): Promise<{ id: string; duplicate: boolean }> {
+  try {
+    const logKey = input.metadata?.["rits_log_key"];
+    if (typeof logKey === "string" && logKey.trim()) {
+      const { data } = await supabase
+        .from("agent_logs")
+        .select("id")
+        .eq("agent_name", input.agent_name)
+        .filter("metadata->>rits_log_key", "eq", logKey.trim())
+        .limit(1);
+      if (data?.[0]?.id) return { id: data[0].id as string, duplicate: true };
+    } else if (input.user_message || input.agent_reply) {
+      const sinceIso = new Date(Date.now() - DEDUPE_WINDOW_MS).toISOString();
+      let q = supabase
+        .from("agent_logs")
+        .select("id")
+        .eq("agent_name", input.agent_name)
+        .eq("source", input.source ?? "line")
+        .gte("created_at", sinceIso)
+        .limit(1);
+      q = input.user_message ? q.eq("user_message", input.user_message) : q.is("user_message", null);
+      q = input.agent_reply ? q.eq("agent_reply", input.agent_reply) : q.is("agent_reply", null);
+      const { data } = await q;
+      if (data?.[0]?.id) return { id: data[0].id as string, duplicate: true };
+    }
+  } catch (e) {
+    logger.warn("agent_logs 重複チェックに失敗（insert は継続）", { err: String(e) });
+  }
+
+  const created = await createAgentLog(supabase, input);
+  return { id: created.id, duplicate: false };
+}
+
 export async function getRecentAgentLogs(
   supabase: SupabaseClient,
   params: { sinceIso: string; limit?: number },
@@ -276,28 +320,36 @@ export async function createDailyReport(
     near_summary: string;
     sera_summary: string;
     irie_summary: string;
+    lram_summary?: string;
     total_score: number;
     priority_issues: string;
     cursor_instruction: string;
   },
 ): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from("daily_reports")
-    .upsert(
-      {
-        report_date: input.report_date,
-        summary: input.summary,
-        near_summary: input.near_summary,
-        sera_summary: input.sera_summary,
-        irie_summary: input.irie_summary,
-        total_score: input.total_score,
-        priority_issues: input.priority_issues,
-        cursor_instruction: input.cursor_instruction,
-      },
-      { onConflict: "report_date" },
-    )
-    .select("id")
-    .single();
+  const base = {
+    report_date: input.report_date,
+    summary: input.summary,
+    near_summary: input.near_summary,
+    sera_summary: input.sera_summary,
+    irie_summary: input.irie_summary,
+    total_score: input.total_score,
+    priority_issues: input.priority_issues,
+    cursor_instruction: input.cursor_instruction,
+  };
+
+  const upsert = async (row: Record<string, unknown>) =>
+    supabase.from("daily_reports").upsert(row, { onConflict: "report_date" }).select("id").single();
+
+  let { data, error } =
+    input.lram_summary !== undefined
+      ? await upsert({ ...base, lram_summary: input.lram_summary })
+      : await upsert(base);
+
+  // migration 025 未適用（lram_summary 列なし）の DB では列なしで保存する
+  if (error && input.lram_summary !== undefined && (error.message?.includes("lram_summary") || error.code === "PGRST204")) {
+    logger.warn("daily_reports.lram_summary 列がありません（rits_schema_migrations/025 を適用すると LRAM 総評が保存されます）");
+    ({ data, error } = await upsert(base));
+  }
 
   if (error) throw new Error(`createDailyReport failed: ${error.message}`);
   if (!data?.id) throw new Error("createDailyReport failed: missing id");

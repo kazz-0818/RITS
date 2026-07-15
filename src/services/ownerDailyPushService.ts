@@ -2,10 +2,26 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type OpenAI from "openai";
 import type { Env } from "../config/env.js";
 import { getJstDateString } from "../lib/date.js";
+import { getUtcIso24HoursAgo } from "../lib/date.js";
 import { chunkLineText, pushMessages } from "../lib/line.js";
 import { logger } from "../lib/logger.js";
+import * as auditService from "./auditService.js";
 import * as logService from "./logService.js";
 import * as reportService from "./reportService.js";
+
+const DAILY_AUDIT_TARGET_AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"];
+
+function dailyAuditBeforeReportEnabled(): boolean {
+  const flag = (process.env.DAILY_AUDIT_BEFORE_REPORT ?? "").trim().toLowerCase();
+  if (flag === "false" || flag === "0" || flag === "no") return false;
+  return true; // 既定 ON
+}
+
+function dailyAuditLimitPerAgent(): number {
+  const raw = Number.parseInt((process.env.DAILY_AUDIT_LIMIT_PER_AGENT ?? "").trim(), 10);
+  if (Number.isFinite(raw) && raw >= 1 && raw <= 50) return raw;
+  return 10;
+}
 
 export type OwnerDailyPushResult =
   | { ok: true; report_date: string; pushed: true; message_count: number; idempotency_recorded: boolean }
@@ -100,6 +116,24 @@ async function pushDailyReportToOwnerInner(params: {
         pushed: false,
         reason: "本日分は既にオーナーへ push 済みです（005 未適用時のマーカー）",
       };
+    }
+  }
+
+  // レポート生成前に、直近24hの未監査ログを LLM 監査する（audit_highlights を空にしない）。
+  // 失敗しても日次 push 自体は続行する。
+  if (dailyAuditBeforeReportEnabled()) {
+    try {
+      const audited = await auditService.runUnauditedAuditsForAgents({
+        supabase: params.supabase,
+        openai: params.openai,
+        model: params.env.OPENAI_MODEL,
+        agentNames: DAILY_AUDIT_TARGET_AGENTS,
+        sinceIso: getUtcIso24HoursAgo(new Date()),
+        maxPerAgent: dailyAuditLimitPerAgent(),
+      });
+      logger.info("日次バッチ監査を実行しました", { audited });
+    } catch (e) {
+      logger.error("日次バッチ監査に失敗（レポート生成は続行）", { err: String(e) });
     }
   }
 

@@ -39,6 +39,8 @@ export const DailyReportRowSchema = z.object({
   near_summary: z.string().nullable(),
   sera_summary: z.string().nullable(),
   irie_summary: z.string().nullable(),
+  /** migration 025 で追加。未適用 DB では存在しない */
+  lram_summary: z.string().nullable().optional(),
   total_score: z.number().nullable(),
   priority_issues: z.string().nullable(),
   cursor_instruction: z.string().nullable(),
@@ -53,6 +55,7 @@ export const DailyReportAiPayloadSchema = z.object({
   near_summary: z.string(),
   sera_summary: z.string(),
   irie_summary: z.string(),
+  lram_summary: z.string(),
   total_score: z.number().int().min(0).max(100),
   priority_issues: z.string(),
   cursor_instruction: z.string(),

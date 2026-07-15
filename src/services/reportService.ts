@@ -90,6 +90,7 @@ function fallbackDailyFromBundle(_bundle: string): {
   near_summary: string;
   sera_summary: string;
   irie_summary: string;
+  lram_summary: string;
   total_score: number;
   priority_issues: string;
   cursor_instruction: string;
@@ -99,6 +100,7 @@ function fallbackDailyFromBundle(_bundle: string): {
     near_summary: "—",
     sera_summary: "—",
     irie_summary: "—",
+    lram_summary: "—",
     total_score: 50,
     priority_issues: "1) reportService の JSON 検証を確認\n2) 各部署の VERIORA_RITS_* と /admin/logs 転送を確認",
     cursor_instruction: "src/services/reportService.ts と src/prompts/reportPrompt.ts を確認",
@@ -180,6 +182,7 @@ export async function generateAndStoreDailyReport(params: {
     near_summary: payload.near_summary,
     sera_summary: payload.sera_summary,
     irie_summary: payload.irie_summary,
+    lram_summary: payload.lram_summary,
     total_score: total,
     priority_issues: payload.priority_issues,
     cursor_instruction: payload.cursor_instruction,

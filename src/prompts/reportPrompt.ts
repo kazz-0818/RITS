@@ -15,6 +15,7 @@ export function buildDailyReportSystemPrompt(): string {
     "- near_summary: string",
     "- sera_summary: string",
     "- irie_summary: string",
+    "- lram_summary: string",
     "- total_score: integer 0-100",
     "- priority_issues: string（番号付き3〜7項目。各1行・短く）",
     "- cursor_instruction: string（最優先1件の修正指示）",

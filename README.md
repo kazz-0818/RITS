@@ -207,6 +207,10 @@ curl -sS -X POST "$APP_BASE_URL/admin/reports/daily/push-owner" \
 | `LINE_OWNER_USER_ID` | push 先の LINE ユーザー ID |
 | `DAILY_OWNER_PUSH_TIME_JST` | 送信時刻（既定 `09:00`、Asia/Tokyo） |
 | `DAILY_OWNER_PUSH_ENABLED` | Render 本番は **未設定＝オフ**（Cron に任せる）。`true` のときだけ Web 内スケジューラも 9:00 push（Cron と二重になりやすい） |
+| `DAILY_AUDIT_BEFORE_REPORT` | 日次 push の前に直近24hの**未監査ログを自動で LLM 監査**する（既定 ON。`false` で無効） |
+| `DAILY_AUDIT_LIMIT_PER_AGENT` | 自動監査の 1 エージェントあたり上限（既定 `10`、最大 `50`） |
+
+日次 push 時に `NEAR / SERA / IRIE / LRAM` の未監査ログ（グループ傍受・返信なしは除く）を自動監査してからレポートを生成するため、`audit_highlights` が空になりません。LRAM の部署総評は [`025_daily_reports_lram_summary.sql`](rits_schema_migrations/025_daily_reports_lram_summary.sql) を適用すると保存・表示されます。
 
 Render 本番でも `LINE_OWNER_USER_ID` を Dashboard に設定してください。
 
