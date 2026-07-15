@@ -16,6 +16,23 @@ function coerceWebhookEvents(json: unknown): unknown[] {
   return Array.isArray(ev) ? ev : [];
 }
 
+/**
+ * Webhook 再配送（redelivery）・コールドスリープ復帰時の重複配送で二重返信しないための
+ * プロセス内 message id 記録（Render 1 インスタンス想定）
+ */
+const processedMessageIds = new Set<string>();
+const PROCESSED_MESSAGE_IDS_MAX = 2000;
+
+function markMessageProcessed(messageId: string): boolean {
+  if (processedMessageIds.has(messageId)) return false;
+  processedMessageIds.add(messageId);
+  if (processedMessageIds.size > PROCESSED_MESSAGE_IDS_MAX) {
+    const first = processedMessageIds.values().next().value;
+    if (first !== undefined) processedMessageIds.delete(first);
+  }
+  return true;
+}
+
 /** テキスト以外の message イベントから replyToken を1つ取る（無言回避用） */
 function firstNonTextMessageReplyToken(events: unknown[]): string | null {
   for (const ev of events) {
@@ -90,10 +107,9 @@ async function processLineWebhookNoSupabase(params: {
 }
 
 /**
- * LINE は Webhook の HTTP 応答を短時間で要求するため、ACK（200）後に実行する。
- * replyToken は数十秒以内に reply API で使う必要がある点に注意。
+ * LINE 返信を完了してから Webhook 200 を返す（NEAR と同契約）。
  */
-async function processLineWebhookAfterAck(params: {
+async function processLineWebhook(params: {
   deps: LineDeps;
   events: LineMessageEvent[];
   rawList: unknown[];
@@ -198,7 +214,12 @@ export function createLineWebhookApp(env: Env) {
       return c.text("Bad Request", 400);
     }
 
-    const events = parseLineEvents(json);
+    const events = parseLineEvents(json).filter((ev) => {
+      const id = ev.message.id;
+      if (!id || markMessageProcessed(id)) return true;
+      logger.warn("LINE 重複配送をスキップ（redelivery / webhook retry）", { message_id: id });
+      return false;
+    });
     const rawList = coerceWebhookEvents(json);
 
     const supabaseBlock = getSupabaseEnvBlockReason(env);
@@ -216,21 +237,21 @@ export function createLineWebhookApp(env: Env) {
         raw_event_count: rawList.length,
         parsed_text_message_count: events.length,
       });
-      void processLineWebhookNoSupabase({ env, events, rawList, reason }).catch((err) => {
-        logger.error("LINE webhook no-supabase task failed", { err: String(err) });
-      });
+      await processLineWebhookNoSupabase({ env, events, rawList, reason });
       return c.text("OK", 200);
     }
 
-    logger.info("LINE webhook accepted (processing async)", {
+    logger.info("LINE webhook processing", {
       raw_event_count: rawList.length,
       parsed_text_message_count: events.length,
     });
 
     const deps: LineDeps = { env, supabase, openai };
-    void processLineWebhookAfterAck({ deps, events, rawList }).catch((err) => {
-      logger.error("LINE webhook background task failed", { err: String(err) });
-    });
+    try {
+      await processLineWebhook({ deps, events, rawList });
+    } catch (err) {
+      logger.error("LINE webhook processing failed", { err: String(err) });
+    }
 
     return c.text("OK", 200);
   });

@@ -4,7 +4,7 @@ import type { AgentAuditRow } from "../types/audit.js";
 import type { LineMessageEvent } from "../types/line.js";
 import type { Env } from "../config/env.js";
 import { getJstDateString } from "../lib/date.js";
-import { chunkLineText, replyMessage } from "../lib/line.js";
+import { chunkLineText, pushMessages, replyMessage } from "../lib/line.js";
 import { generateText } from "../lib/openai.js";
 import { buildRitsCapabilitiesHelpReply } from "../lib/capabilitiesHelp.js";
 import { buildRitsSystemPrompt } from "../prompts/ritsSystemPrompt.js";
@@ -43,7 +43,20 @@ type RitsLineLogContext = {
   lineSource?: LineMessageEvent["source"];
 };
 
-/** LINE reply の結果を検査し、失敗時は system_errors に残す（Render ログだけでは気づきにくいため） */
+/** push API の宛先（1:1 は userId、グループ/ルームは groupId/roomId） */
+function linePushTargetFromSource(source?: LineMessageEvent["source"]): string | null {
+  if (!source) return null;
+  const ext = source as { userId?: string; groupId?: string; roomId?: string };
+  if (source.type === "group" && ext.groupId) return ext.groupId;
+  if (source.type === "room" && ext.roomId) return ext.roomId;
+  return ext.userId ?? null;
+}
+
+/**
+ * LINE reply の結果を検査し、失敗時は system_errors に残す（Render ログだけでは気づきにくいため）。
+ * コールドスリープ復帰・Webhook 再配送で reply token が失効していた場合は push にフォールバックし、
+ * 無返信を防ぐ。
+ */
 async function sendLineReply(
   deps: RitsDeps,
   replyToken: string,
@@ -53,11 +66,25 @@ async function sendLineReply(
 ): Promise<void> {
   const normalized = texts.filter((t) => t.trim().length > 0);
   const toSend = (normalized.length > 0 ? normalized : ["（応答が空でした）"]).slice(0, 5);
-  const res = await replyMessage({
+  let res = await replyMessage({
     channelAccessToken: deps.env.LINE_CHANNEL_ACCESS_TOKEN,
     replyToken,
     texts: toSend,
   });
+  if (!res.ok) {
+    const pushTo = linePushTargetFromSource(logContext?.lineSource);
+    if (pushTo) {
+      logger.warn("LINE reply 失敗 → push にフォールバック", { context, status: res.status });
+      const pushed = await pushMessages({
+        channelAccessToken: deps.env.LINE_CHANNEL_ACCESS_TOKEN,
+        to: pushTo,
+        texts: toSend,
+      });
+      if (pushed.ok) {
+        res = { ok: true, status: 200, body: "(delivered via push fallback)" };
+      }
+    }
+  }
   if (logContext && res.ok) {
     void logService
       .createAgentLog(deps.supabase, {
