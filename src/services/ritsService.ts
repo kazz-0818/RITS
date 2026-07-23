@@ -8,10 +8,49 @@ import { chunkLineText, pushMessages, replyMessage } from "../lib/line.js";
 import { generateText } from "../lib/openai.js";
 import { buildRitsCapabilitiesHelpReply } from "../lib/capabilitiesHelp.js";
 import { buildRitsSystemPrompt } from "../prompts/ritsSystemPrompt.js";
-import { classifyLineCommand } from "./commandService.js";
+import { classifyLineCommand, type LineAuditAgent } from "./commandService.js";
 import * as logService from "./logService.js";
 import * as reportService from "./reportService.js";
 import { logger } from "../lib/logger.js";
+import { tryGetPool } from "../db/client.js";
+import {
+  listImprovementTasks,
+  type ImprovementTaskRow,
+} from "./supabase/repositories/qualityReviews.js";
+import { applyImprovementTaskAction } from "./improvementTaskWorkflowService.js";
+import { formatScoreTrendForLine } from "./scoreTrendService.js";
+import {
+  buildExternalEvidenceBundle,
+  formatExternalEvidenceForLine,
+} from "./externalEvidenceService.js";
+
+const PENDING_APPROVAL_STATUSES = ["draft", "pending_approval"] as const;
+const PENDING_REAUDIT_STATUSES = ["awaiting_reaudit", "implemented"] as const;
+
+function agentKeyFromLineAgent(agent: LineAuditAgent | null): string | null {
+  if (!agent) return null;
+  return agent.toLowerCase();
+}
+
+function formatImprovementTasksForLine(params: {
+  title: string;
+  rows: ImprovementTaskRow[];
+  emptyHint: string;
+}): string {
+  if (params.rows.length === 0) {
+    return [`【RITS：${params.title}】`, "", params.emptyHint].join("\n");
+  }
+  const lines: string[] = [`【RITS：${params.title}】`, ""];
+  for (const t of params.rows.slice(0, 15)) {
+    const code = (t.target_agent_code ?? t.target_agent_key ?? "?").toUpperCase();
+    const shortId = t.id.replace(/-/g, "").slice(0, 8);
+    lines.push(`- [${t.status}] (${t.priority}) ${code}: ${t.title.slice(0, 200)}`);
+    lines.push(`  id: ${shortId}  → 承認 ${shortId} / 却下 ${shortId} / 配布 ${shortId}`);
+    if (t.description) lines.push(`  ${t.description.replace(/\s+/g, " ").slice(0, 280)}`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
 
 export type RitsDeps = {
   env: Env;
@@ -252,6 +291,27 @@ export async function handleRitsLineText(params: {
       return;
     }
 
+    if (cmd.type === "SCORE_TREND") {
+      const body = await formatScoreTrendForLine(7);
+      const chunks = chunkLineText(body, 4500).slice(0, 3);
+      await sendLineReply(params.deps, params.replyToken, chunks, "SCORE_TREND", lineLog("SCORE_TREND"));
+      return;
+    }
+
+    if (cmd.type === "EXTERNAL_EVIDENCE") {
+      const bundle = await buildExternalEvidenceBundle();
+      const body = formatExternalEvidenceForLine(bundle);
+      const chunks = chunkLineText(body, 4500).slice(0, 3);
+      await sendLineReply(
+        params.deps,
+        params.replyToken,
+        chunks,
+        "EXTERNAL_EVIDENCE",
+        lineLog("EXTERNAL_EVIDENCE"),
+      );
+      return;
+    }
+
     if (cmd.type === "AGENT_ISSUES") {
       const agent = cmd.agent ?? "SERA";
       const audits = await logService.getAuditsByAgent(params.deps.supabase, { agent_name: agent, limit: 12 });
@@ -283,6 +343,86 @@ export async function handleRitsLineText(params: {
       }
       const chunks = chunkLineText(lines.join("\n"), 4500).slice(0, 5);
       await sendLineReply(params.deps, params.replyToken, chunks, "UNSUPPORTED_LIST", lineLog("UNSUPPORTED_LIST"));
+      return;
+    }
+
+    if (cmd.type === "PENDING_IMPROVEMENT_TASKS" || cmd.type === "PENDING_REAUDIT") {
+      const db = tryGetPool();
+      if (!db) {
+        await sendLineReply(
+          params.deps,
+          params.replyToken,
+          [
+            "品質台帳（改善タスク）を読むには DATABASE_URL が必要です。設定後に「未承認タスク」「再監査待ち」で再試行してください。",
+          ],
+          cmd.type,
+          lineLog(cmd.type),
+        );
+        return;
+      }
+      const isPendingApproval = cmd.type === "PENDING_IMPROVEMENT_TASKS";
+      const statuses = isPendingApproval
+        ? [...PENDING_APPROVAL_STATUSES]
+        : [...PENDING_REAUDIT_STATUSES];
+      const rows = await listImprovementTasks(db, {
+        statuses,
+        agentKey: agentKeyFromLineAgent(cmd.agent),
+        limit: 20,
+      });
+      const title = isPendingApproval
+        ? `未承認の改善タスク${cmd.agent ? `（${cmd.agent}）` : ""}`
+        : `再監査待ち${cmd.agent ? `（${cmd.agent}）` : ""}`;
+      const emptyHint = isPendingApproval
+        ? "未承認（draft / pending_approval）の改善タスクはありません。監査が走ると品質台帳に draft が溜まります。"
+        : "再監査待ち（awaiting_reaudit / implemented）はありません。承認→配布→「実装済み <id>」のあとここに現れます。";
+      const msg = formatImprovementTasksForLine({ title, rows, emptyHint });
+      const chunks = chunkLineText(msg, 4500).slice(0, 5);
+      await sendLineReply(params.deps, params.replyToken, chunks, cmd.type, lineLog(cmd.type));
+      return;
+    }
+
+    if (
+      cmd.type === "TASK_APPROVE" ||
+      cmd.type === "TASK_REJECT" ||
+      cmd.type === "TASK_DISTRIBUTE" ||
+      cmd.type === "TASK_MARK_IMPLEMENTED"
+    ) {
+      const action =
+        cmd.type === "TASK_APPROVE"
+          ? "approve"
+          : cmd.type === "TASK_REJECT"
+            ? "reject"
+            : cmd.type === "TASK_DISTRIBUTE"
+              ? "distribute"
+              : "mark_implemented";
+      const result = await applyImprovementTaskAction({ idPrefix: cmd.idPrefix, action });
+      const body = result.ok
+        ? [
+            "【RITS：タスク更新】",
+            "",
+            `status: ${result.task.status}`,
+            `title: ${result.task.title}`,
+            `id: ${result.task.id}`,
+            result.task.target_agent_code
+              ? `target: ${result.task.target_agent_code}`
+              : null,
+            action === "distribute"
+              ? "配布: handoff ログへ記録しました（担当部署への自動通知は次段）。"
+              : null,
+            action === "mark_implemented"
+              ? "再監査待ちに移しました。次回監査で score≥70 なら自動 closed します。"
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : `【RITS：タスク更新失敗】\n${result.message}`;
+      await sendLineReply(
+        params.deps,
+        params.replyToken,
+        chunkLineText(body, 4500).slice(0, 3),
+        cmd.type,
+        lineLog(cmd.type),
+      );
       return;
     }
 

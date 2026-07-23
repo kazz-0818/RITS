@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type AgentName = "NEAR" | "SERA" | "IRIE" | "RITS";
+export type AgentName = "NEAR" | "SERA" | "IRIE" | "LRAM" | "RITS";
 
 export const AgentProfileSchema = z.object({
   id: z.string().uuid(),

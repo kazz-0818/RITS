@@ -15,6 +15,7 @@ import { loadEnv } from "../config/env.js";
 import { tryGetPool } from "../db/client.js";
 import { buildCustomerMasterAuditSection } from "./customerAuditQueries.js";
 import { splitAgentLogsByKind } from "../lib/agentLogStats.js";
+import { buildExternalEvidenceBundle } from "./externalEvidenceService.js";
 
 const TARGET_AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"] as const;
 
@@ -147,11 +148,19 @@ export async function generateAndStoreDailyReport(params: {
     }
   }
 
+  let externalSection = "";
+  try {
+    const ext = await buildExternalEvidenceBundle();
+    externalSection = ext.text;
+  } catch {
+    externalSection = "## External_evidence\n(unavailable)";
+  }
+
   const bundle = buildDeterministicBundle({
     sinceIso,
     logsByAgent,
     audits,
-    llmSection: [llmSection, customerSection].filter(Boolean).join("\n\n"),
+    llmSection: [llmSection, customerSection, externalSection].filter(Boolean).join("\n\n"),
   });
 
   const gen = await generateJson({

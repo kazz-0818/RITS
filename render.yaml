@@ -43,6 +43,21 @@ services:
         sync: false
       - key: APP_BASE_URL
         sync: false
+      # 任意: 品質台帳・message_feed（未設定でも既存監査は動作）
+      - key: DATABASE_URL
+        sync: false
+      # 任意: GitHub PR 根拠（GITHUB_TOKEN + optional GITHUB_REPO）
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      # 任意: Sentry 例外傾向
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      - key: SENTRY_ORG
+        sync: false
+      - key: SENTRY_PROJECT
+        sync: false
 
   - type: cron
     name: rits-daily-owner-push

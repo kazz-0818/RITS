@@ -37,6 +37,8 @@ export async function mirrorAgentLogToVelioraMessages(input: {
 }): Promise<void> {
   const env = loadEnv();
   if (!env.VERIORA_CANONICAL_LINE_LOG) return;
+  if (input.metadata?.rits_skip_canonical_mirror === true) return;
+  if (input.metadata?.rits_from_message_feed === true) return;
   const db = tryGetPool();
   if (!db) return;
 

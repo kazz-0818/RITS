@@ -8,6 +8,10 @@ import { logger } from "../lib/logger.js";
 import * as auditService from "./auditService.js";
 import * as logService from "./logService.js";
 import * as reportService from "./reportService.js";
+import { syncCustomerSafetyFindingsToLedger } from "./customerSafetyLedgerService.js";
+import { ingestMessageFeedToAgentLogs } from "./messageFeedIngestService.js";
+import { runDeterministicRuleAudit } from "./ruleAuditService.js";
+import { syncSentryIssuesToQualityLedger } from "./sentryLedgerService.js";
 
 const DAILY_AUDIT_TARGET_AGENTS = ["NEAR", "SERA", "IRIE", "LRAM"];
 
@@ -119,6 +123,19 @@ async function pushDailyReportToOwnerInner(params: {
     }
   }
 
+  // 正規 message_feed → agent_logs（既存 LLM 監査へ接続）。失敗しても続行。
+  try {
+    const ingest = await ingestMessageFeedToAgentLogs({
+      supabase: params.supabase,
+      sinceIso: getUtcIso24HoursAgo(new Date()),
+    });
+    if (ingest.created > 0 || ingest.pairs > 0) {
+      logger.info("message_feed を agent_logs へ取り込み", ingest);
+    }
+  } catch (e) {
+    logger.warn("message_feed 取り込みに失敗（続行）", { err: String(e) });
+  }
+
   // レポート生成前に、直近24hの未監査ログを LLM 監査する（audit_highlights を空にしない）。
   // 失敗しても日次 push 自体は続行する。
   if (dailyAuditBeforeReportEnabled()) {
@@ -135,6 +152,38 @@ async function pushDailyReportToOwnerInner(params: {
     } catch (e) {
       logger.error("日次バッチ監査に失敗（レポート生成は続行）", { err: String(e) });
     }
+  }
+
+  // 決定的ルール監査（無応答・handoff ギャップ等）
+  try {
+    const rules = await runDeterministicRuleAudit({
+      sinceIso: getUtcIso24HoursAgo(new Date()),
+    });
+    if (rules.findingsCreated > 0 || rules.tasksCreated > 0) {
+      logger.info("決定的ルール監査を品質台帳へ同期", rules);
+    }
+  } catch (e) {
+    logger.warn("決定的ルール監査に失敗（続行）", { err: String(e) });
+  }
+
+  // 顧客横断セーフティを品質台帳へ（失敗しても続行）
+  try {
+    const safety = await syncCustomerSafetyFindingsToLedger();
+    if (safety.findingsCreated > 0 || safety.tasksCreated > 0) {
+      logger.info("顧客セーフティ finding を品質台帳へ同期", safety);
+    }
+  } catch (e) {
+    logger.warn("顧客セーフティ同期に失敗（続行）", { err: String(e) });
+  }
+
+  // Sentry 未解決 → 品質台帳（トークン未設定なら no-op）
+  try {
+    const sentry = await syncSentryIssuesToQualityLedger();
+    if (sentry.findingsCreated > 0 || sentry.tasksCreated > 0) {
+      logger.info("Sentry finding を品質台帳へ同期", sentry);
+    }
+  } catch (e) {
+    logger.warn("Sentry 同期に失敗（続行）", { err: String(e) });
   }
 
   // 【24h 活動】と ■ 各部署 の文言を一致させる（朝の生成結果をそのまま push しない）

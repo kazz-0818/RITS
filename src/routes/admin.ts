@@ -11,6 +11,18 @@ import { pushDailyReportToOwner } from "../services/ownerDailyPushService.js";
 import { getJstDateString } from "../lib/date.js";
 import { LlmUsageIngestSchema } from "../types/llmUsage.js";
 import * as llmUsageService from "../services/llmUsageService.js";
+import {
+  getQualityOverview,
+  renderQualityDashboardHtml,
+} from "../services/qualityDashboardService.js";
+import { buildExternalEvidenceBundle } from "../services/externalEvidenceService.js";
+import { syncSentryIssuesToQualityLedger } from "../services/sentryLedgerService.js";
+import { syncCustomerSafetyFindingsToLedger } from "../services/customerSafetyLedgerService.js";
+import { runDeterministicRuleAudit } from "../services/ruleAuditService.js";
+import { ingestMessageFeedToAgentLogs } from "../services/messageFeedIngestService.js";
+import { getUtcIso24HoursAgo } from "../lib/date.js";
+import { listImprovementTasks } from "../services/supabase/repositories/qualityReviews.js";
+import { tryGetPool } from "../db/client.js";
 
 export function createAdminApp(env: Env) {
   const app = new Hono();
@@ -123,6 +135,49 @@ export function createAdminApp(env: Env) {
     });
     if (!result.ok) return c.json({ ok: false, error: result.error }, 500);
     return c.json(result);
+  });
+
+  /** 品質台帳・外部根拠の JSON 概要 */
+  app.get("/admin/quality/overview", async (c) => {
+    const overview = await getQualityOverview();
+    return c.json({ ok: true, overview });
+  });
+
+  /** 簡易 HTML ダッシュボード（x-admin-api-key 必須） */
+  app.get("/admin/quality/dashboard", async (c) => {
+    const overview = await getQualityOverview();
+    return c.html(renderQualityDashboardHtml(overview));
+  });
+
+  /** 外部根拠（GitHub / Sentry） */
+  app.get("/admin/external-evidence", async (c) => {
+    const bundle = await buildExternalEvidenceBundle();
+    return c.json({ ok: true, ...bundle });
+  });
+
+  /** 品質パイプラインの手動同期（feed / rules / safety / sentry） */
+  app.post("/admin/quality/sync", async (c) => {
+    const supabase = tryCreateSupabaseAdmin(env);
+    if (!supabase) return c.json({ ok: false, error: "supabase_not_configured" }, 503);
+
+    const sinceIso = getUtcIso24HoursAgo(new Date());
+    const feed = await ingestMessageFeedToAgentLogs({ supabase, sinceIso });
+    const rules = await runDeterministicRuleAudit({ sinceIso });
+    const safety = await syncCustomerSafetyFindingsToLedger();
+    const sentry = await syncSentryIssuesToQualityLedger();
+    const db = tryGetPool();
+    const pending = db
+      ? await listImprovementTasks(db, { statuses: ["draft", "pending_approval"], limit: 5 })
+      : [];
+
+    return c.json({
+      ok: true,
+      feed,
+      rules,
+      safety,
+      sentry,
+      pending_sample: pending.map((t) => ({ id: t.id, title: t.title, status: t.status })),
+    });
   });
 
   return app;

@@ -4,6 +4,8 @@ import { AuditResultPayloadSchema, type AuditResultPayload } from "../types/audi
 import { buildAuditSystemPrompt, buildAuditUserPrompt } from "../prompts/auditPrompt.js";
 import * as logService from "./logService.js";
 import { generateJson } from "../lib/openai.js";
+import { mirrorAuditToQualityLedger } from "./qualityLedgerService.js";
+import { tryCloseTasksAfterReaudit } from "./improvementTaskWorkflowService.js";
 
 function trimText(s: string | null | undefined, max: number): string {
   const t = (s ?? "").trim();
@@ -193,6 +195,19 @@ async function auditLogsForAgent(params: {
       metadata: { model: params.model },
     });
     auditIds.push(created.id);
+
+    // 正規品質台帳へ best-effort（失敗しても監査本体は成功扱い）
+    await mirrorAuditToQualityLedger({
+      auditId: created.id,
+      agentName: params.agent_name,
+      targetLogId: log.id,
+      payload,
+    });
+    await tryCloseTasksAfterReaudit({
+      agentName: params.agent_name,
+      score: payload.score,
+      auditId: created.id,
+    });
   }
 
   return { audited: auditIds.length, audit_ids: auditIds };

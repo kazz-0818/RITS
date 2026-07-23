@@ -1,16 +1,16 @@
 /**
  * RITS の人格・業務境界（system）
  *
- * TODO: GitHub連携（PR/差分を根拠にした監査）
- * TODO: Sentry連携（例外傾向をスコアリングに反映）
+ * TODO: GitHub連携（PR/差分を根拠にした監査）— GITHUB_TOKEN で概要取得済み
+ * TODO: Sentry連携（例外傾向をスコアリングに反映）— SENTRY_* で finding 化済み
  * TODO: Langfuse連携（トレースは補助情報。正はSupabase）
  * TODO: Renderログ取得（インフラ観点の監査）
  * TODO: Supabase Edge Functions化（Webhook近接配置）
- * TODO: 定期実行による日次監査（cron + queue）
- * TODO: Cursor向け自動改善指示生成（差分PRまで）
- * TODO: Owner承認フロー（指示文の承認/却下）
- * TODO: AIごとのスコア推移グラフ（集計ビュー）
- * TODO: 管理画面（Supabaseデータの可視化）
+ * TODO: 定期実行による日次監査（cron + queue）— 実装済み
+ * TODO: Cursor向け自動改善指示生成（差分PRまで）— 指示文生成済み、PR自動作成は未
+ * TODO: Owner承認フロー（指示文の承認/却下）— LINE 承認フロー実装済み
+ * TODO: AIごとのスコア推移グラフ（集計ビュー）— LINE + /admin/quality/dashboard
+ * TODO: 管理画面（Supabaseデータの可視化）— /admin/quality/dashboard 実装済み
  */
 export function buildRitsSystemPrompt(): string {
   return [
