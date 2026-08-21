@@ -161,7 +161,9 @@ export function formatDailyReportForLine(
     parts.push(llmUsageService.formatLlmUsageForLine(activity.llm));
   } else {
     parts.push("■ LLM 使用量");
-    parts.push("記録なし（各部署の VERIORA_RITS_* を Render に設定すると集計されます）");
+    parts.push(
+      "記録なし（各部署が POST /admin/usage に送ると集計。未着時は Render 429/スリープも確認）",
+    );
   }
   parts.push("");
 

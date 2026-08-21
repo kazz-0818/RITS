@@ -19,9 +19,43 @@ export async function createChatCompletion(params: {
     temperature: params.temperature ?? 0.2,
     response_format: params.response_format,
   });
+  persistRitsOwnLlmUsage(res, params.model);
   const content = res.choices[0]?.message?.content;
   if (!content) throw new Error("OpenAI returned empty content");
   return content;
+}
+
+/** 日次監査・レポート生成など、RITS 自身の LLM を llm_usage_events へ残す */
+function persistRitsOwnLlmUsage(
+  res: OpenAI.Chat.Completions.ChatCompletion,
+  fallbackModel: string,
+): void {
+  const u = res.usage;
+  const prompt = u?.prompt_tokens ?? 0;
+  const completion = u?.completion_tokens ?? 0;
+  if (prompt === 0 && completion === 0) return;
+  void (async () => {
+    try {
+      const { loadEnv } = await import("../config/env.js");
+      const { tryCreateSupabaseAdmin } = await import("./supabase.js");
+      const { ingestLlmUsage } = await import("../services/llmUsageService.js");
+      const env = loadEnv();
+      const supabase = tryCreateSupabaseAdmin(env);
+      if (!supabase) return;
+      await ingestLlmUsage(supabase, {
+        agent_name: "RITS",
+        model: res.model || fallbackModel,
+        prompt_tokens: prompt,
+        completion_tokens: completion,
+        total_tokens: u?.total_tokens ?? prompt + completion,
+        source: "rits_openai",
+      });
+    } catch (e) {
+      logger.warn("persistRitsOwnLlmUsage failed (non-fatal)", {
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
+  })();
 }
 
 export async function generateText(params: {
